@@ -432,6 +432,15 @@ screen_validate_pin_wiped_3_button(unsigned int button_mask,
     return 1;
 }
 
+unsigned char rng_u8_modulo(unsigned char modulo) {
+    unsigned int rng_max = 256 % modulo;
+    unsigned int rng_limit = 256 - rng_max;
+    unsigned char candidate;
+    while ((candidate = cx_rng_u8()) > rng_limit)
+        ;
+    return (candidate % modulo);
+}
+
 unsigned int screen_validate_pin_button(unsigned int button_mask,
                                         unsigned int button_mask_counter) {
     unsigned int digit_count = strlen(G_bolos_ux_context.pin_buffer);
@@ -445,7 +454,8 @@ unsigned int screen_validate_pin_button(unsigned int button_mask,
         G_bolos_ux_context.pin_buffer[digit_count] =
             G_bolos_ux_context.string_buffer[0];
         // reset for next digit
-        strcpy(G_bolos_ux_context.string_buffer, "5");
+        G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+        G_bolos_ux_context.string_buffer[1] = '\0';
 
         if (digit_count == 3) {
             // check if pin and confirmation match, if not, error message
@@ -559,8 +569,9 @@ void screen_validate_pin_init(void) {
     G_bolos_ux_context.screen_before_element_display_callback =
         screen_validate_pin_before_element_display_callback;
 
-    // initial typed digit is always this one
-    strcpy(G_bolos_ux_context.string_buffer, "5");
+    // initialize first digit
+    G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+    G_bolos_ux_context.string_buffer[1] = '\0';
 
     // blank pins, first step first
     os_memset(G_bolos_ux_context.pin_buffer, 0,
