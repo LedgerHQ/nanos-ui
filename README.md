@@ -2,6 +2,8 @@
 
 This project is an external version of the Nano S User Interface which can be loaded as a specific application - it can be used to personalize most generic parts of the user experience and the most appreciated experiments can be pushed into the official firmware. 
 
+Modified UIs display a warning at boot time to let you check if you're running an official version or a modified one.  
+
 This application shall be installed in Recovery mode - to enter recovery mode, start your Nano S with the right button pushed until "Recovery" is displayed on screen. To install the application use
 
 ```
