@@ -23,7 +23,6 @@
 
 #include "bolos_ux_common.h"
 
-
 #ifdef OS_IO_SEPROXYHAL
 
 #define ARRAYLEN(array) (sizeof(array) / sizeof(array[0]))
@@ -47,6 +46,15 @@ void array_hexstr(char *strbuf, const void *bin, unsigned int len) {
         bin = (const void *)((unsigned int)bin + 1);
     }
     *strbuf = 0; // EOS
+}
+
+unsigned char rng_u8_modulo(unsigned char modulo) {
+    unsigned int rng_max = 256 % modulo;
+    unsigned int rng_limit = 256 - rng_max;
+    unsigned char candidate;
+    while ((candidate = cx_rng_u8()) > rng_limit)
+        ;
+    return (candidate % modulo);
 }
 
 // common code for all screens
@@ -248,6 +256,20 @@ void bolos_ux_main(void) {
         case BOLOS_UX_DASHBOARD:
             screen_settings_apply();
 
+#ifdef BOLOS_AUTOSTART_FIRST
+            // if not in recovery
+            if (!(os_flags() & OS_FLAG_RECOVERY)) {
+                // run the first non ux application
+                unsigned int i = 0;
+                while (i < os_registry_count()) {
+                    application_t app;
+                    os_registry_get(i, &app);
+                    if (!(app.flags & APPLICATION_FLAG_BOLOS_UX)) {
+                        os_sched_exec(i); // no return
+                    }
+                }
+            }
+#endif // BOLOS_AUTOSTART_FIRST
             screen_dashboard_init();
             break;
 
@@ -256,6 +278,10 @@ void bolos_ux_main(void) {
             break;
 
         case BOLOS_UX_VALIDATE_PIN:
+            screen_validate_pin_init();
+            break;
+
+        case BOLOS_UX_CHANGE_ALTERNATE_PIN:
             screen_validate_pin_init();
             break;
 
@@ -276,6 +302,14 @@ void bolos_ux_main(void) {
 
         case BOLOS_UX_CONSENT_FOREIGN_KEY:
             screen_consent_foreign_key_init();
+            break;
+
+        case BOLOS_UX_CONSENT_GET_DEVICE_NAME:
+            screen_consent_get_device_name_init();
+            break;
+
+        case BOLOS_UX_CONSENT_SET_DEVICE_NAME:
+            screen_consent_set_device_name_init();
             break;
 
         case BOLOS_UX_BLANK_PREVIOUS:

@@ -445,7 +445,13 @@ unsigned int screen_validate_pin_button(unsigned int button_mask,
         G_bolos_ux_context.pin_buffer[digit_count] =
             G_bolos_ux_context.string_buffer[0];
         // reset for next digit
-        strcpy(G_bolos_ux_context.string_buffer, "5");
+        if (os_setting_get(OS_SETTING_SHUFFLE_PIN) == 0) {
+            G_bolos_ux_context.string_buffer[0] = '5';
+            G_bolos_ux_context.string_buffer[1] = '\0';
+        } else {
+            G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+            G_bolos_ux_context.string_buffer[1] = '\0';
+        }
 
         if (digit_count == 3) {
             // check if pin and confirmation match, if not, error message
@@ -464,10 +470,16 @@ unsigned int screen_validate_pin_button(unsigned int button_mask,
                 return 1;
             }
 
-            // pin is ok, prepare return value
-            G_bolos_ux_context.exit_code =
-                BOLOS_UX_OK; // no elements to be drawn, we can reply right
-                             // after even is processed
+            if (G_bolos_ux_context.last_ux_id ==
+                BOLOS_UX_CHANGE_ALTERNATE_PIN) {
+                // move to the next part
+                screen_onboarding_1_2_pin_init(1);
+            } else {
+                // pin is ok, prepare return value
+                G_bolos_ux_context.exit_code =
+                    BOLOS_UX_OK; // no elements to be drawn, we can reply right
+                                 // after even is processed
+            }
         } else {
             // draw current digit as validated
             os_memmove(G_bolos_ux_context.screen_volatile_elements,
@@ -559,8 +571,14 @@ void screen_validate_pin_init(void) {
     G_bolos_ux_context.screen_before_element_display_callback =
         screen_validate_pin_before_element_display_callback;
 
-    // initial typed digit is always this one
-    strcpy(G_bolos_ux_context.string_buffer, "5");
+    // initialize first digit
+    if (os_setting_get(OS_SETTING_SHUFFLE_PIN) == 0) {
+        G_bolos_ux_context.string_buffer[0] = '5';
+        G_bolos_ux_context.string_buffer[1] = '\0';
+    } else {
+        G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+        G_bolos_ux_context.string_buffer[1] = '\0';
+    }
 
     // blank pins, first step first
     os_memset(G_bolos_ux_context.pin_buffer, 0,

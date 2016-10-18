@@ -44,6 +44,8 @@ extern bolos_ux_context_t G_bolos_ux_context;
 
 extern const unsigned char hex_digits[];
 
+unsigned char rng_u8_modulo(unsigned char modulo);
+
 void array_hexstr(char *strbuf, const void *bin, unsigned int len);
 
 // common code for all screens
@@ -76,6 +78,8 @@ void screen_consent_add_init(void);
 void screen_consent_del_init(void);
 void screen_consent_issuer_key_init(void);
 void screen_consent_foreign_key_init(void);
+void screen_consent_get_device_name_init(void);
+void screen_consent_set_device_name_init(void);
 void screen_boot_unsafe_wipe_init(void);
 void screen_loader_init(void);
 

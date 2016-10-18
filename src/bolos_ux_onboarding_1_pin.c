@@ -326,7 +326,13 @@ screen_onboarding_1_2_pin_entry_button(unsigned int button_mask,
             .pin_buffer[G_bolos_ux_context.onboarding_index + digit_count] =
             G_bolos_ux_context.string_buffer[0];
         // reset for next digit
-        strcpy(G_bolos_ux_context.string_buffer, "5");
+        if (os_setting_get(OS_SETTING_SHUFFLE_PIN) == 0) {
+            G_bolos_ux_context.string_buffer[0] = '5';
+            G_bolos_ux_context.string_buffer[1] = '\0';
+        } else {
+            G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+            G_bolos_ux_context.string_buffer[1] = '\0';
+        }
 
         if (digit_count == 3) {
             if (G_bolos_ux_context.onboarding_index == 0) {
@@ -350,19 +356,27 @@ screen_onboarding_1_2_pin_entry_button(unsigned int button_mask,
                     return 1;
                 }
 
-                // if match, then goto onboarding step
-                switch (G_bolos_ux_context.onboarding_kind) {
-                case BOLOS_UX_ONBOARDING_NEW:
-                    screen_onboarding_3_new_init();
-                    return 1;
+                if (G_bolos_ux_context.last_ux_id ==
+                    BOLOS_UX_CHANGE_ALTERNATE_PIN) {
+                    // Save the alternate PIN
+                    os_perso_set_alternate_pin(G_bolos_ux_context.pin_buffer,
+                                               4);
+                    G_bolos_ux_context.exit_code = BOLOS_UX_OK;
+                } else {
+                    // if match, then goto onboarding step
+                    switch (G_bolos_ux_context.onboarding_kind) {
+                    case BOLOS_UX_ONBOARDING_NEW:
+                        screen_onboarding_3_new_init();
+                        return 1;
 
-                case BOLOS_UX_ONBOARDING_RESTORE:
-                    screen_onboarding_3_restore_init();
-                    return 1;
+                    case BOLOS_UX_ONBOARDING_RESTORE:
+                        screen_onboarding_3_restore_init();
+                        return 1;
 
-                default:
-                    // error ?
-                    break;
+                    default:
+                        // error ?
+                        break;
+                    }
                 }
             }
         } else {
@@ -455,7 +469,18 @@ void screen_onboarding_1_2_pin_init(unsigned int initial) {
     G_bolos_ux_context.button_push_callback = screen_onboarding_1_2_pin_button;
 
     // initial typed digit is always this one
-    strcpy(G_bolos_ux_context.string_buffer, "5");
+    /*
+    if (os_setting_get(OS_SETTING_SHUFFLE_PIN) == 0) {
+    */
+    G_bolos_ux_context.string_buffer[0] = '5';
+    G_bolos_ux_context.string_buffer[1] = '\0';
+    /*
+    }
+    else {
+      G_bolos_ux_context.string_buffer[0] = '0' + rng_u8_modulo(10);
+      G_bolos_ux_context.string_buffer[1] = '\0';
+    }
+    */
 
     if (initial == 1) {
         // blank pins, first step first

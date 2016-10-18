@@ -29,6 +29,7 @@
 #define BRIGHTNESS_DEFAULT 3
 #define ROTATION_DEFAULT 0
 #define INVERSION_DEFAULT 0
+#define SHUFFLE_PIN_DEFAULT 0
 
 #define IMMEDIATE_SETTING_SAVE
 
@@ -45,17 +46,19 @@ extern const screen_desc_t screen_settings_desc[];
 
 void screen_settings_apply_internal(unsigned int use_persisted,
                                     unsigned int brightness,
-                                    unsigned int rotation,
-                                    unsigned int invert) {
+                                    unsigned int rotation, unsigned int invert,
+                                    unsigned int shufflePin) {
     // apply default settings
     if (!os_perso_isonboarded() && use_persisted) {
         brightness = BRIGHTNESS_DEFAULT;
         rotation = ROTATION_DEFAULT;
         invert = INVERSION_DEFAULT;
+        shufflePin = SHUFFLE_PIN_DEFAULT;
     } else if (use_persisted) {
         brightness = os_setting_get(OS_SETTING_BRIGHTNESS);
         rotation = os_setting_get(OS_SETTING_ROTATION);
         invert = os_setting_get(OS_SETTING_INVERT);
+        shufflePin = os_setting_get(OS_SETTING_SHUFFLE_PIN);
     }
 
 #ifdef ALWAYS_INVERT // fast discriminant for UX trigger check // debug
@@ -93,7 +96,7 @@ void screen_settings_apply_internal(unsigned int use_persisted,
 
 void screen_settings_apply(void) {
     // use NVRAM values
-    screen_settings_apply_internal(1, 0, 0, 0);
+    screen_settings_apply_internal(1, 0, 0, 0, 0);
 }
 
 // draw screen
@@ -556,7 +559,8 @@ screen_settings_brightness_button(unsigned int button_mask,
     redraw:
         screen_settings_apply_internal(0, G_bolos_ux_context.onboarding_index,
                                        os_setting_get(OS_SETTING_ROTATION),
-                                       os_setting_get(OS_SETTING_INVERT));
+                                       os_setting_get(OS_SETTING_INVERT),
+                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
         screen_settings_display_current();
         break;
 
@@ -670,7 +674,8 @@ unsigned int screen_settings_invert_button(unsigned int button_mask,
         os_setting_set(OS_SETTING_INVERT, G_bolos_ux_context.onboarding_index);
         screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
                                        os_setting_get(OS_SETTING_ROTATION),
-                                       G_bolos_ux_context.onboarding_index);
+                                       G_bolos_ux_context.onboarding_index,
+                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
         screen_settings_init(0);
         break;
 
@@ -685,6 +690,122 @@ unsigned int screen_settings_invert_button(unsigned int button_mask,
 
 void screen_settings_invert_init(void) {
     G_bolos_ux_context.onboarding_index = os_setting_get(OS_SETTING_INVERT);
+}
+
+// ==========================================================================
+
+const bagl_element_t screen_settings_shufflePin_elements[] = {
+    // erase
+    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
+      0, 0},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    // application name
+    {{BAGL_LABELINE, 0x00, 31, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_REGULAR_11px, 0},
+     "Shuffle",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    {{BAGL_ICON, 0x01, 77, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_TOGGLE_ON},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x02, 77, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_TOGGLE_OFF},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    // icons
+    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CROSS},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CHECK},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+};
+
+unsigned int
+screen_settings_shufflePin_before_display(const bagl_element_t *element) {
+    switch (element->component.userid) {
+    case 0x01:
+        return G_bolos_ux_context.onboarding_index;
+    case 0x02:
+        return !G_bolos_ux_context.onboarding_index;
+    }
+
+    // display other elements only if screen setup, else, only redraw words
+    // value
+    return 1;
+}
+
+unsigned int
+screen_settings_shufflePin_button(unsigned int button_mask,
+                                  unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
+    switch (button_mask) {
+    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
+        G_bolos_ux_context.onboarding_index = 0;
+        goto redraw;
+
+    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
+        G_bolos_ux_context.onboarding_index = 1;
+
+    redraw:
+        os_setting_set(OS_SETTING_SHUFFLE_PIN,
+                       G_bolos_ux_context.onboarding_index);
+        screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
+                                       os_setting_get(OS_SETTING_ROTATION),
+                                       os_setting_get(OS_SETTING_INVERT),
+                                       G_bolos_ux_context.onboarding_index);
+        screen_settings_init(0);
+        break;
+
+    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
+        // save setting and redisplay list
+        os_setting_set(OS_SETTING_SHUFFLE_PIN,
+                       G_bolos_ux_context.onboarding_index);
+        screen_settings_init(0);
+        break;
+    }
+    return 0;
+}
+
+void screen_settings_shufflePin_init(void) {
+    G_bolos_ux_context.onboarding_index =
+        os_setting_get(OS_SETTING_SHUFFLE_PIN);
 }
 
 // ==========================================================================
@@ -782,7 +903,8 @@ unsigned int screen_settings_rotation_button(unsigned int button_mask,
                        G_bolos_ux_context.onboarding_index);
         screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
                                        G_bolos_ux_context.onboarding_index,
-                                       os_setting_get(OS_SETTING_INVERT));
+                                       os_setting_get(OS_SETTING_INVERT),
+                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
         screen_settings_init(0);
         break;
 
@@ -955,6 +1077,11 @@ const screen_desc_t screen_settings_desc[] = {
      screen_settings_invert_before_display, screen_settings_invert_button,
      screen_settings_invert_init},
 
+    {"Shuffle PIN", screen_settings_shufflePin_elements,
+     ARRAYLEN(screen_settings_shufflePin_elements),
+     screen_settings_shufflePin_before_display,
+     screen_settings_shufflePin_button, screen_settings_shufflePin_init},
+
     {"Firmware", screen_settings_version_elements,
      ARRAYLEN(screen_settings_version_elements),
      screen_settings_version_before_display, screen_settings_version_button,
@@ -981,7 +1108,7 @@ void screen_settings_init(unsigned int initial) {
     G_bolos_ux_context.button_push_callback = screen_settings_button;
 
     if (initial) {
-        G_bolos_ux_context.onboarding_step = os_perso_isonboarded() ? 0 : 3;
+        G_bolos_ux_context.onboarding_step = os_perso_isonboarded() ? 0 : 4;
         bolos_ux_hslider3_init(ARRAYLEN(screen_settings_desc) -
                                G_bolos_ux_context.onboarding_step);
     }

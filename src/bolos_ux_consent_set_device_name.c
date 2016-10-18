@@ -25,7 +25,7 @@
 
 #ifdef OS_IO_SEPROXYHAL
 
-const bagl_element_t screen_consent_issuer_key_elements[] = {
+const bagl_element_t screen_consent_set_device_name_elements[] = {
     // type                               userid    x    y   w    h  str rad
     // fill      fg        bg      fid iid  txt   touchparams...       ]
     {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
@@ -40,7 +40,7 @@ const bagl_element_t screen_consent_issuer_key_elements[] = {
 
     {{BAGL_LABELINE, 0x00, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Allow Ledger",
+     "Allow manager",
      0,
      0,
      0,
@@ -49,7 +49,7 @@ const bagl_element_t screen_consent_issuer_key_elements[] = {
      NULL},
     {{BAGL_LABELINE, 0x00, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Manager app?",
+     "to set name?",
      0,
      0,
      0,
@@ -78,8 +78,8 @@ const bagl_element_t screen_consent_issuer_key_elements[] = {
 };
 
 unsigned int
-screen_consent_issuer_key_button(unsigned int button_mask,
-                                 unsigned int button_mask_counter) {
+screen_consent_set_device_name_button(unsigned int button_mask,
+                                      unsigned int button_mask_counter) {
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
@@ -92,15 +92,16 @@ screen_consent_issuer_key_button(unsigned int button_mask,
     return 0;
 }
 
-void screen_consent_issuer_key_init(void) {
+void screen_consent_set_device_name_init(void) {
     screen_state_init();
 
     G_bolos_ux_context.screen_current_element_arrays[0].element_array =
-        screen_consent_issuer_key_elements;
+        screen_consent_set_device_name_elements;
     G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
-        ARRAYLEN(screen_consent_issuer_key_elements);
+        ARRAYLEN(screen_consent_set_device_name_elements);
     G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    G_bolos_ux_context.button_push_callback = screen_consent_issuer_key_button;
+    G_bolos_ux_context.button_push_callback =
+        screen_consent_set_device_name_button;
 
     screen_display_init();
 }
