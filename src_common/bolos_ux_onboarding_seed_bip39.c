@@ -1,6 +1,6 @@
 /*******************************************************************************
 *   Ledger Blue - Secure firmware
-*   (c) 2016 Ledger
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@
 
 #include "bolos_ux_common.h"
 
-
 unsigned int bolos_ux_mnemonic_from_data(unsigned char *in,
                                          unsigned int inLength,
-                                         unsigned char outIndex,
                                          unsigned char *out,
                                          unsigned int outLength) {
     unsigned char bits[32 + 1];
@@ -34,6 +32,7 @@ unsigned int bolos_ux_mnemonic_from_data(unsigned char *in,
         THROW(INVALID_PARAMETER);
     }
     cx_hash_sha256(in, inLength, bits);
+
     bits[inLength] = bits[0];
     os_memmove(bits, in, inLength);
     offset = 0;
@@ -45,52 +44,24 @@ unsigned int bolos_ux_mnemonic_from_data(unsigned char *in,
             idx +=
                 (bits[(i * 11 + j) / 8] & (1 << (7 - ((i * 11 + j) % 8)))) > 0;
         }
-        if (!outIndex) {
-            wordLength =
-                BIP39_WORDLIST_OFFSETS[idx + 1] - BIP39_WORDLIST_OFFSETS[idx];
-            if ((offset + wordLength) > outLength) {
+        wordLength =
+            BIP39_WORDLIST_OFFSETS[idx + 1] - BIP39_WORDLIST_OFFSETS[idx];
+        if ((offset + wordLength) > outLength) {
+            THROW(INVALID_PARAMETER);
+        }
+        os_memmove(out + offset, BIP39_WORDLIST + BIP39_WORDLIST_OFFSETS[idx],
+                   wordLength);
+        offset += wordLength;
+        if (i < mlen - 1) {
+            if (offset > outLength) {
                 THROW(INVALID_PARAMETER);
             }
-            os_memmove(out + offset,
-                       BIP39_WORDLIST + BIP39_WORDLIST_OFFSETS[idx],
-                       wordLength);
-            offset += wordLength;
-            if (i < mlen - 1) {
-                if (offset > outLength) {
-                    THROW(INVALID_PARAMETER);
-                }
-                out[offset++] = ' ';
-            }
-        } else {
-            if ((offset + 2) > outLength) {
-                THROW(INVALID_PARAMETER);
-            }
-            out[offset++] = ((idx >> 8) & 0xff);
-            out[offset++] = (idx & 0xff);
+            out[offset++] = ' ';
         }
     }
     return offset;
 }
 
-unsigned int bolos_ux_mnemonic_indexes_to_words(unsigned char *indexes,
-                                                unsigned char *words) {
-    unsigned char i;
-    unsigned int offset = 0;
-    for (i = 0; i < 24; i++) {
-        unsigned char wordLength;
-        unsigned int idx = ((*indexes) << 8) | (*(indexes + 1));
-        wordLength =
-            BIP39_WORDLIST_OFFSETS[idx + 1] - BIP39_WORDLIST_OFFSETS[idx];
-        os_memmove(words + offset, BIP39_WORDLIST + BIP39_WORDLIST_OFFSETS[idx],
-                   wordLength);
-        offset += wordLength;
-        if (i != 23) {
-            words[offset++] = ' ';
-        }
-        indexes += 2;
-    }
-    return offset;
-}
 
 // separated function to lower the stack usage when jumping into pbkdf algorithm
 unsigned int
@@ -106,19 +77,15 @@ bolos_ux_mnemonic_to_seed_hash_length128(unsigned char *mnemonic,
 
 void bolos_ux_mnemonic_to_seed(unsigned char *mnemonic,
                                unsigned int mnemonicLength,
-                               unsigned char *passphrase,
-                               unsigned int passphraseLength,
                                unsigned char *seed) {
-    if (passphraseLength > 200) {
-        THROW(INVALID_PARAMETER);
-    }
+    unsigned char passphrase[BIP39_MNEMONIC_LENGTH + 4];
     mnemonicLength =
         bolos_ux_mnemonic_to_seed_hash_length128(mnemonic, mnemonicLength);
 
     os_memmove(passphrase, BIP39_MNEMONIC, BIP39_MNEMONIC_LENGTH);
 
     cx_pbkdf2_sha512(mnemonic, mnemonicLength, passphrase,
-                     8 + passphraseLength +
+                     BIP39_MNEMONIC_LENGTH +
                          4 /*for round index, set in pbkdf2*/,
                      BIP39_PBKDF2_ROUNDS, seed, 64);
 
@@ -153,19 +120,6 @@ unsigned int bolos_ux_get_word_ptr(unsigned char **word,
     return word_length;
 }
 
-unsigned char bolos_ux_word_check(unsigned char *word,
-                                  unsigned int wordLength) {
-    unsigned int i;
-    for (i = 0; i < BIP39_WORDLIST_OFFSETS_LENGTH - 1; i++) {
-        if ((unsigned int)(BIP39_WORDLIST_OFFSETS[i + 1] -
-                           BIP39_WORDLIST_OFFSETS[i]) == wordLength &&
-            os_memcmp(word, BIP39_WORDLIST + BIP39_WORDLIST_OFFSETS[i],
-                      wordLength) == 0) {
-            return 1;
-        }
-    }
-    return 0;
-}
 
 unsigned int bolos_ux_mnemonic_check(unsigned char *mnemonic,
                                      unsigned int mnemonicLength) {

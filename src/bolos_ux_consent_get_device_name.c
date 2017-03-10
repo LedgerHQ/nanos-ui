@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -93,17 +93,17 @@ screen_consent_get_device_name_button(unsigned int button_mask,
 }
 
 void screen_consent_get_device_name_init(void) {
-    screen_state_init();
+    screen_state_init(0);
 
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_consent_get_device_name_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_consent_get_device_name_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    G_bolos_ux_context.button_push_callback =
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].button_push_callback =
         screen_consent_get_device_name_button;
 
-    screen_display_init();
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -194,7 +194,8 @@ const unsigned int const screen_onboarding_3_restore_choices_value[] = {
     24, 18, 12,
 };
 
-unsigned int screen_onboarding_3_restore_2_before_element_display_callback(
+const bagl_element_t *
+screen_onboarding_3_restore_2_before_element_display_callback(
     const bagl_element_t *element) {
     switch (element->component.userid) {
     case 0x01:
@@ -225,66 +226,46 @@ unsigned int screen_onboarding_3_restore_2_before_element_display_callback(
     // left button
     case 0x04:
         if (G_bolos_ux_context.hslider3_before == BOLOS_UX_HSLIDER3_NONE) {
-            return 0; // don't display
+            return NULL; // don't display
         }
         break;
 
     // right button
     case 0x05:
         if (G_bolos_ux_context.hslider3_after == BOLOS_UX_HSLIDER3_NONE) {
-            return 0; // don't display
+            return NULL; // don't display
         }
         break;
     }
 
     // display other elements only if screen setup, else, only redraw words
     // value
-    return 1;
+    return element;
 }
 
 unsigned int
 screen_onboarding_3_restore_2_button(unsigned int button_mask,
                                      unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
     switch (button_mask) {
-    case BUTTON_LEFT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_LEFT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_LEFT:
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_LEFT:
         bolos_ux_hslider3_previous();
         goto redraw;
 
-    case BUTTON_RIGHT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_RIGHT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_RIGHT:
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_RIGHT:
         bolos_ux_hslider3_next();
 
     redraw:
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_3_restore_2_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_3_restore_2_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        screen_display_init();
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        screen_display_init(0);
         break;
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
@@ -307,21 +288,23 @@ screen_onboarding_3_restore_1_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_3_restore_2_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_3_restore_2_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        screen_display_init();
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
         // initialize the slider with 3 entry
         bolos_ux_hslider3_init(3);
 
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_3_restore_2_button;
-        G_bolos_ux_context.screen_before_element_display_callback =
+        G_bolos_ux_context.screen_stack[0]
+            .screen_before_element_display_callback =
             screen_onboarding_3_restore_2_before_element_display_callback;
+        screen_display_init(0);
         break;
     }
     return 0;
@@ -333,34 +316,57 @@ screen_onboarding_3_restore_0_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+#ifdef HAVE_ELECTRUM
+        if (G_bolos_ux_context.onboarding_algorithm ==
+            BOLOS_UX_ONBOARDING_ALGORITHM_ELECTRUM) {
+            // set the restore number of words
+            G_bolos_ux_context.onboarding_kind = BOLOS_UX_ONBOARDING_RESTORE_12;
+            // start recovery of the first word
+            screen_onboarding_4_restore_word_init(1);
+        } else {
+            G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
+                screen_onboarding_3_restore_1_elements;
+            G_bolos_ux_context.screen_stack[0]
+                .element_arrays[0]
+                .element_array_count =
+                ARRAYLEN(screen_onboarding_3_restore_1_elements);
+            G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+
+            G_bolos_ux_context.screen_stack[0].button_push_callback =
+                screen_onboarding_3_restore_1_button;
+            screen_display_init(0);
+        }
+#else
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_3_restore_1_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_3_restore_1_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        screen_display_init();
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_3_restore_1_button;
+        screen_display_init(0);
+#endif
         break;
     }
     return 0;
 }
 
 void screen_onboarding_3_restore_init(void) {
-    screen_state_init();
+    screen_state_init(0);
 
     // elements to be displayed
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_onboarding_3_restore_0_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_onboarding_3_restore_0_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    screen_display_init();
-
-    G_bolos_ux_context.button_push_callback =
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].button_push_callback =
         screen_onboarding_3_restore_0_button;
+
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

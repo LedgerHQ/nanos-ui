@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 
 #include "os_io_seproxyhal.h"
 #include "string.h"
+
+#include "bolos_ux_common.h"
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
 void bolos_ux_main(void);
@@ -44,6 +46,10 @@ __attribute__((section(".boot"))) int main(void) {
 
     BEGIN_TRY {
         TRY {
+            // Enforce OS compatibility (must be done at each ux call as the
+            // taks_fini upon os_sched_exit wipes the os api check flag)
+            check_api_level(CX_COMPAT_APILEVEL);
+
             bolos_ux_main();
         }
         // consider UX as dead

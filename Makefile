@@ -1,5 +1,5 @@
 #*******************************************************************************
-#   Ledger Blue - Secure firmware
+#   Ledger Nano S
 #   (c) 2016 Ledger
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,11 +13,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#*******************************************************************************/
-
-APPNAME = "UX"
-VERSION = "ux1.0"
-TARGET_ID = 0x31100002 #Nano S
+#*******************************************************************************
+#extract TARGET_ID from the SDK to allow for makefile choices
+TARGET_ID := $(shell cat $(BOLOS_SDK)/include/bolos_target.h | grep 0x | cut -f3 -d' ')
+$(info TARGET_ID=$(TARGET_ID))
+APPNAME = UX
+APPVERSION = 1.3.1
+VERSION = ux$(APPVERSION)
 
 ################
 # Default rule #
@@ -36,6 +38,15 @@ SHELL =       /bin/bash
 #.ONESHELL:
 
 
+GLYPH_FILES := $(addprefix glyphs/,$(sort $(notdir $(shell find glyphs/))))
+GLYPH_DESTC := src/glyphs.c
+GLYPH_DESTH := src/glyphs.h
+$(GLYPH_DESTC) $(GLYPH_DESTH): $(GLYPH_FILES) $(BOLOS_SDK)/icon.py
+	-rm $@
+	for gif in $(GLYPH_FILES) ; do python $(BOLOS_SDK)/icon.py $$gif glyphcheader ; done > $(GLYPH_DESTH)
+	for gif in $(GLYPH_FILES) ; do python $(BOLOS_SDK)/icon.py $$gif glyphcfile ; done > $(GLYPH_DESTC)
+
+
 ############
 # Platform #
 ############
@@ -43,24 +54,34 @@ PROG     := token
 
 CONFIG_PRODUCTIONS := bin/$(PROG)
 
+# Nano S
+ifeq ($(TARGET_ID),0x31100002)
+DEFINES   += BOLOS_APP_ICON_SIZE_B=\(9+32\)
 SOURCE_PATH   := src src_common $(BOLOS_SDK)/src
-SOURCE_FILES  := $(foreach path, $(SOURCE_PATH),$(shell find $(path) | grep "\.c$$") )
+else ifeq ($(TARGET_ID),0x31000002)
+# Blue 
+DEFINES   += BOLOS_APP_ICON_OFF_AND_SIZE
+SOURCE_PATH   := src ../../app/bolos/src_ux_common/ ../../app/bolos/src_ux_blue/ $(BOLOS_SDK)/src
+endif
+SOURCE_FILES  := $(foreach path, $(SOURCE_PATH),$(shell find $(path) | grep "\.c$$") ) $(GLYPH_DESTC)
 INCLUDES_PATH := include $(BOLOS_SDK)/include $(SOURCE_PATH)
 
 ### platform definitions
-DEFINES := ST31 gcc __IO=volatile
+DEFINES   += ST31 gcc __IO=volatile
 
 DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=300
 DEFINES   += HAVE_BAGL 
-DEFINES   += APPLICATION_MAXCOUNT=12 
-DEFINES   += HAVE_PRINTF PRINTF=screen_printf
+DEFINES   += APPLICATION_MAXCOUNT=4
+DEFINES   += HAVE_PRINTF HAVE_SPRINTF PRINTF=screen_printf
 DEFINES   += VERSION=\"$(VERSION)\"
 DEFINES   += CX_PBKDF2
 DEFINES   += STATE_INITIALIZED=0xD0D1DAD0UL # magic different from the embedded UX as we're sharing the same RAM context but not with the same structure content
 #DEFINES   += ALWAYS_INVERT
 # make sure to use the same application_t size as the one in the OS, to avoid stack overflow troubles during os_registry_get
 DEFINES   += BOLOS_APP_DERIVE_PATH_SIZE_B=32
-DEFINES   += BOLOS_APP_ICON_SIZE_B=\(9+32\)
+DEFINES   += BOLOS_RELEASE
+DEFINES   += HAVE_BOLOS_UX
+
 
 ##############
 # Compiler #
@@ -101,7 +122,7 @@ LDFLAGS  += -fno-common -ffunction-sections -fdata-sections -fwhole-program -nos
 LDFLAGS  += -mno-unaligned-access
 #LDFLAGS  += -nodefaultlibs
 #LDFLAGS  += -nostdlib -nostdinc
-LDFLAGS  += -Tscript.ld  -Wl,--gc-sections -Wl,-Map,debug/$(PROG).map,--cref
+LDFLAGS  += -T$(BOLOS_SDK)/script.ux.ld  -Wl,--gc-sections -Wl,-Map,debug/$(PROG).map,--cref
 LDLIBS   += -Wl,--library-path -Wl,$(GCCPATH)/../lib/armv6-m/
 #LDLIBS   += -Wl,--start-group 
 LDLIBS   += -lm -lgcc -lc 
@@ -119,9 +140,9 @@ ifeq ($(filter clean,$(MAKECMDGOALS)),)
 endif
 
 clean:
-	rm -fr obj bin debug dep
+	rm -fr obj bin debug dep $(GLYPH_DESTC) $(GLYPH_DESTH)
 
-prepare:
+prepare: $(GLYPH_DESTC)
 	@mkdir -p bin obj debug dep
 
 .SECONDEXPANSION:
@@ -132,12 +153,12 @@ log = $(if $(strip $(VERBOSE)),$1,@$1)
 default: prepare bin/$(PROG)
 
 load: 
-	python -m ledgerblue.loadApp --apdu --targetId $(TARGET_ID) --fileName bin/$(PROG).hex --appFlags 0x48 --appName $(APPNAME) --icon `python $(BOLOS_SDK)/icon.py 16 16 icon.gif hexbitmaponly` --path ""
+	python -m ledgerblue.loadApp --targetId $(TARGET_ID) --fileName bin/$(PROG).hex --appFlags 0x248 --appName $(APPNAME) --icon `python $(BOLOS_SDK)/icon.py 16 16 icon.gif hexbitmaponly` --path ""
 
 delete:
 	python -m ledgerblue.deleteApp --targetId $(TARGET_ID) --appName $(APPNAME)
 
-bin/$(PROG): $(OBJECT_FILES) script.ld
+bin/$(PROG): $(OBJECT_FILES)
 	@echo "[LINK] 	$@"
 	$(call log,$(call link_cmdline,$(OBJECT_FILES) $(LDLIBS),$@))
 	$(call log,$(GCCPATH)/arm-none-eabi-objcopy -O ihex -S bin/$(PROG) bin/$(PROG).hex)

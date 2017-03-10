@@ -1,6 +1,6 @@
 /*******************************************************************************
 *   Ledger Blue - Secure firmware
-*   (c) 2016 Ledger
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -945,3 +945,13 @@ unsigned short const BIP39_WORDLIST_OFFSETS[] = {
     11061, 11065, 11068};
 
 unsigned char const BIP39_MNEMONIC[] = {'m', 'n', 'e', 'm', 'o', 'n', 'i', 'c'};
+
+#ifdef HAVE_ELECTRUM
+
+unsigned char const ELECTRUM_SEED_VERSION[] = {'S', 'e', 'e', 'd', ' ', 'v',
+                                               'e', 'r', 's', 'i', 'o', 'n'};
+
+unsigned char const ELECTRUM_MNEMONIC[] = {'e', 'l', 'e', 'c',
+                                           't', 'r', 'u', 'm'};
+
+#endif

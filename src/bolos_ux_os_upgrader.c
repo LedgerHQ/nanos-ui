@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -35,18 +35,18 @@ const bagl_element_t screen_os_upgrader_static_elements[] = {
      NULL,
      NULL,
      NULL},
-    {{BAGL_LABELINE, 0x00, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "OS Upgrade",
+    {{BAGL_ICON, 0x00, 35, 9, 9, 14, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_DOWNLOAD_BADGE},
+     NULL,
      0,
      0,
      0,
      NULL,
      NULL,
      NULL},
-    {{BAGL_LABELINE, 0x00, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     VERSION,
+    {{BAGL_LABELINE, 0x00, 56, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0,
+      BAGL_FONT_OPEN_SANS_REGULAR_11px, 0},
+     "Update",
      0,
      0,
      0,
@@ -56,15 +56,16 @@ const bagl_element_t screen_os_upgrader_static_elements[] = {
 };
 
 void screen_os_upgrader(void) {
-    screen_state_init();
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    screen_state_init(0);
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_os_upgrader_static_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_os_upgrader_static_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
-    G_bolos_ux_context.exit_code_after_elements_displayed = BOLOS_UX_OK;
-    screen_display_init();
+    G_bolos_ux_context.screen_stack[0].exit_code_after_elements_displayed =
+        BOLOS_UX_OK;
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

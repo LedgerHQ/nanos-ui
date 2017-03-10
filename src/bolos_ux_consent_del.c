@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ const bagl_element_t screen_consent_del_elements[] = {
      NULL,
      NULL,
      NULL},
-    {{BAGL_LABELINE, 0x31, 0, 28, 128, 32, 0x80 | 0x10, 0, 0, 0xFFFFFF,
+    {{BAGL_LABELINE, 0x31, 23, 28, 82, 11, 0x80 | 0x10, 0, 0, 0xFFFFFF,
       0x000000, BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER,
       26},
      G_bolos_ux_context.string_buffer,
@@ -115,27 +115,8 @@ const bagl_element_t screen_consent_del_elements[] = {
 
 };
 
-unsigned int screen_consent_del_before_element_display_callback(
+const bagl_element_t *screen_consent_del_before_element_display_callback(
     const bagl_element_t *element) {
-    if (element->component.userid & 0x10) {
-        if ((element->component.userid & 0x0F) !=
-            G_bolos_ux_context.onboarding_index) {
-            return 0;
-        }
-        switch (element->component.userid & 0x0F) {
-        case 0:
-            io_seproxyhal_setup_ticker(2000);
-            break;
-        case 1:
-            io_seproxyhal_setup_ticker(
-                MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 9)));
-            break;
-        case 2:
-            io_seproxyhal_setup_ticker(3000);
-            break;
-        }
-    }
-
     // for dashboard, setup the current application's name
     switch (element->component.userid) {
     case 0x11:
@@ -152,36 +133,45 @@ unsigned int screen_consent_del_before_element_display_callback(
 
     case 0x32:
         // compact hash of the app
-        array_hexstr(G_bolos_ux_context.string_buffer,
-                     G_bolos_ux_context.parameters.u.appdel.appentry.hash,
-                     BOLOS_UX_HASH_LENGTH / 2);
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2] = '.';
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2 + 1] =
-            '.';
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2 + 2] =
-            '.';
-        array_hexstr(G_bolos_ux_context.string_buffer +
-                         BOLOS_UX_HASH_LENGTH / 2 * 2 + 3,
-                     G_bolos_ux_context.parameters.u.appdel.appentry.hash + 32 -
-                         BOLOS_UX_HASH_LENGTH / 2,
-                     BOLOS_UX_HASH_LENGTH / 2);
+        screen_hex_identifier_string_buffer(
+            G_bolos_ux_context.parameters.u.appdel.appentry.hash, 32);
+
         break;
     }
-    return 1;
+
+    if (element->component.userid & 0x10) {
+        if ((element->component.userid & 0x0F) !=
+            G_bolos_ux_context.onboarding_index) {
+            return 0;
+        }
+        switch (element->component.userid & 0x0F) {
+        case 0:
+            screen_consent_set_interval(2000);
+            break;
+        case 1:
+            screen_consent_set_interval(
+                MAX(3000, 1000 + bagl_label_roundtrip_duration_ms(element, 7)));
+            break;
+        case 2:
+            screen_consent_set_interval(3000);
+            break;
+        }
+    }
+
+    return element;
 }
 
 void screen_consent_del_init(void) {
-    screen_state_init();
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    screen_state_init(0);
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_consent_del_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_consent_del_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].screen_before_element_display_callback =
         screen_consent_del_before_element_display_callback;
 
-    // start displaying
-    screen_consent_ticker_init(3, 2000);
+    screen_consent_ticker_init(3, 2000, 0);
 }
 
 #endif // OS_IO_SEPROXYHAL

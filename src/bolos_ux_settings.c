@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -23,18 +23,18 @@
 
 #include "bolos_ux_common.h"
 
+#include "glyphs.h"
+
 #ifdef OS_IO_SEPROXYHAL
 
-#define BRIGHTNESS_DEFAULT_PERCENT 20
 #define BRIGHTNESS_DEFAULT 3
 #define ROTATION_DEFAULT 0
 #define INVERSION_DEFAULT 0
 #define SHUFFLE_PIN_DEFAULT 0
 
-#define IMMEDIATE_SETTING_SAVE
+#define AUTO_LOCK_DEFAULT 600000
 
 typedef struct screen_desc_e {
-    const char *name;
     const bagl_element_t *elements;
     unsigned int elements_count;
     bagl_element_callback_t before_display_callback;
@@ -44,21 +44,43 @@ typedef struct screen_desc_e {
 
 extern const screen_desc_t screen_settings_desc[];
 
+const ux_menu_entry_t menu_settings[];
+const ux_menu_entry_t menu_settings_not_onboarded[];
+const ux_menu_entry_t menu_settings_display[];
+const ux_menu_entry_t menu_settings_security[];
+const ux_menu_entry_t menu_settings_passphrase[];
+const ux_menu_entry_t menu_settings_device[];
+const ux_menu_entry_t menu_settings_device_not_onboard[];
+const ux_menu_entry_t menu_settings_invert[];
+const ux_menu_entry_t menu_settings_rotate[];
+const ux_menu_entry_t menu_settings_shufflepin[];
+const ux_menu_entry_t menu_settings_autolock[];
+
 void screen_settings_apply_internal(unsigned int use_persisted,
                                     unsigned int brightness,
-                                    unsigned int rotation, unsigned int invert,
-                                    unsigned int shufflePin) {
+                                    unsigned int rotation,
+                                    unsigned int invert) {
     // apply default settings
-    if (!os_perso_isonboarded() && use_persisted) {
+    if (!os_perso_isonboarded()) {
         brightness = BRIGHTNESS_DEFAULT;
         rotation = ROTATION_DEFAULT;
         invert = INVERSION_DEFAULT;
-        shufflePin = SHUFFLE_PIN_DEFAULT;
-    } else if (use_persisted) {
+        // shufflePin = SHUFFLE_PIN_DEFAULT;
+        G_bolos_ux_context.setting_auto_lock_delay_ms = AUTO_LOCK_DEFAULT;
+    }
+
+    if (os_perso_isonboarded() && use_persisted) {
         brightness = os_setting_get(OS_SETTING_BRIGHTNESS);
         rotation = os_setting_get(OS_SETTING_ROTATION);
         invert = os_setting_get(OS_SETTING_INVERT);
-        shufflePin = os_setting_get(OS_SETTING_SHUFFLE_PIN);
+        // shufflePin = os_setting_get(OS_SETTING_SHUFFLE_PIN);
+
+        // load
+        G_bolos_ux_context.setting_auto_lock_delay_ms = AUTO_LOCK_DEFAULT;
+        if (os_setting_get(OS_SETTING_AUTO_LOCK_DELAY)) {
+            G_bolos_ux_context.setting_auto_lock_delay_ms =
+                os_setting_get(OS_SETTING_AUTO_LOCK_DELAY);
+        }
     }
 
 #ifdef ALWAYS_INVERT // fast discriminant for UX trigger check // debug
@@ -79,7 +101,7 @@ void screen_settings_apply_internal(unsigned int use_persisted,
         break;
     default:
     case 3:
-        G_io_seproxyhal_spi_buffer[4] = BRIGHTNESS_DEFAULT_PERCENT;
+        G_io_seproxyhal_spi_buffer[4] = 20;
         break;
     case 4:
         G_io_seproxyhal_spi_buffer[4] = 30;
@@ -96,262 +118,34 @@ void screen_settings_apply_internal(unsigned int use_persisted,
 
 void screen_settings_apply(void) {
     // use NVRAM values
-    screen_settings_apply_internal(1, 0, 0, 0, 0);
+    screen_settings_apply_internal(1, 0, 0, 0);
 }
-
-// draw screen
-const bagl_element_t screen_settings_elements[] = {
-    // erase
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // application name
-    {{BAGL_LABELINE, 0x01, 0, 3, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     G_bolos_ux_context.string_buffer,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x02, 0, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     G_bolos_ux_context.string_buffer,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x12, 29, 9, 14, 14, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_DASHBOARD_BADGE},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x12, 50, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px, 0},
-     G_bolos_ux_context.string_buffer,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x03, 0, 35, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     G_bolos_ux_context.string_buffer,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // icons
-    {{BAGL_ICON, 0x21, 3, 14, 7, 4, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_UP},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x22, 118, 14, 7, 4, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_DOWN},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-};
 
 void screen_settings_display_current(void) {
     // only setup when not displaying help (or quit)
-    if (screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                             G_bolos_ux_context.onboarding_step]
+    if (screen_settings_desc[G_bolos_ux_context.settings_index]
             .elements_count != 0) {
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
-            (const bagl_element_t *)PIC(
-                screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                     G_bolos_ux_context.onboarding_step]
-                    .elements);
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
+            .element_array = (const bagl_element_t *)PIC(
+            screen_settings_desc[G_bolos_ux_context.settings_index].elements);
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
-            screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                 G_bolos_ux_context.onboarding_step]
+            screen_settings_desc[G_bolos_ux_context.settings_index]
                 .elements_count;
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.screen_before_element_display_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0]
+            .screen_before_element_display_callback =
             (bagl_element_callback_t)PIC(
-                screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                     G_bolos_ux_context.onboarding_step]
+                screen_settings_desc[G_bolos_ux_context.settings_index]
                     .before_display_callback);
-        G_bolos_ux_context.button_push_callback = (button_push_callback_t)PIC(
-            screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                 G_bolos_ux_context.onboarding_step]
-                .button_push_callback);
-        screen_display_init();
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
+            (button_push_callback_t)PIC(
+                screen_settings_desc[G_bolos_ux_context.settings_index]
+                    .button_push_callback);
+        screen_display_init(0);
     }
-}
-
-unsigned int screen_settings_button(unsigned int button_mask,
-                                    unsigned int button_mask_counter) {
-    switch (button_mask) {
-    case BUTTON_LEFT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_LEFT;
-        }
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_LEFT:
-        if (G_bolos_ux_context.hslider3_current == 0) {
-            return 0;
-        }
-        bolos_ux_hslider3_previous();
-        goto redraw;
-
-    case BUTTON_RIGHT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_RIGHT;
-        }
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_RIGHT:
-        if (G_bolos_ux_context.hslider3_current ==
-            G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
-        }
-        bolos_ux_hslider3_next();
-
-    redraw:
-        screen_settings_init(0);
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        if (G_bolos_ux_context.hslider3_current ==
-            G_bolos_ux_context.hslider3_total - 1) {
-            // request animation when settings exits
-            G_bolos_ux_context.dashboard_redisplayed = 1;
-
-            screen_dashboard_init();
-        } else {
-            ((appmain_t)PIC(
-                screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                     G_bolos_ux_context.onboarding_step]
-                    .setting_init))();
-            screen_settings_display_current();
-        }
-        break;
-    }
-    return 0;
-}
-
-unsigned int
-screen_settings_before_element_display_callback(const bagl_element_t *element) {
-    switch (element->component.userid) {
-    // previous setting
-    case 0x01:
-        // don't display help when quit app is displayed
-        if (G_bolos_ux_context.hslider3_before == BOLOS_UX_HSLIDER3_NONE ||
-            G_bolos_ux_context.hslider3_current == 0 ||
-            G_bolos_ux_context.hslider3_current ==
-                G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
-        }
-        strcpy(G_bolos_ux_context.string_buffer,
-               (const char *)PIC(
-                   screen_settings_desc[G_bolos_ux_context.hslider3_before +
-                                        G_bolos_ux_context.onboarding_step]
-                       .name));
-        break;
-
-    // special quit app
-    case 0x12:
-        if (G_bolos_ux_context.hslider3_current !=
-            G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
-        }
-        strcpy(G_bolos_ux_context.string_buffer,
-               (const char *)PIC(
-                   screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                        G_bolos_ux_context.onboarding_step]
-                       .name));
-        break;
-
-    // current selected
-    case 0x02:
-        if (G_bolos_ux_context.hslider3_current ==
-            G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
-        }
-        strcpy(G_bolos_ux_context.string_buffer,
-               (const char *)PIC(
-                   screen_settings_desc[G_bolos_ux_context.hslider3_current +
-                                        G_bolos_ux_context.onboarding_step]
-                       .name));
-        break;
-
-    // next setting
-    case 0x03:
-        // don't display quit app when displaying help
-        if (G_bolos_ux_context.hslider3_after == BOLOS_UX_HSLIDER3_NONE ||
-            G_bolos_ux_context.hslider3_current >=
-                G_bolos_ux_context.hslider3_total - 2) {
-            return 0;
-        }
-        strcpy(G_bolos_ux_context.string_buffer,
-               (const char *)PIC(
-                   screen_settings_desc[G_bolos_ux_context.hslider3_after +
-                                        G_bolos_ux_context.onboarding_step]
-                       .name));
-        break;
-
-    // up
-    case 0x21:
-        if (G_bolos_ux_context.hslider3_current == 0) {
-            return 0;
-        }
-        break;
-
-    // down
-    case 0x22:
-        if (G_bolos_ux_context.hslider3_current ==
-            G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
-        }
-        break;
-    }
-
-    // display other elements only if screen setup, else, only redraw words
-    // value
-    return 1;
 }
 
 // ==========================================================================
@@ -504,422 +298,59 @@ const bagl_element_t screen_settings_brightness_elements[] = {
      NULL},
 };
 
-unsigned int
+const bagl_element_t *
 screen_settings_brightness_before_display(const bagl_element_t *element) {
     if (element->component.userid) {
-        if (G_bolos_ux_context.onboarding_index < element->component.userid) {
-            return 0;
+        if (G_bolos_ux_context.settings_value < element->component.userid) {
+            return NULL;
         }
     }
 
     // display other elements only if screen setup, else, only redraw words
     // value
-    return 1;
+    return element;
 }
 
 unsigned int
 screen_settings_brightness_button(unsigned int button_mask,
                                   unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
     switch (button_mask) {
-    case BUTTON_LEFT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_LEFT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_LEFT:
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_LEFT:
-        if (G_bolos_ux_context.onboarding_index > 1) {
-            G_bolos_ux_context.onboarding_index--;
+        if (G_bolos_ux_context.settings_value > 1) {
+            G_bolos_ux_context.settings_value--;
         }
         goto redraw;
 
-    case BUTTON_RIGHT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_RIGHT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_RIGHT:
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_RIGHT:
-        if (G_bolos_ux_context.onboarding_index < 6) {
-            G_bolos_ux_context.onboarding_index++;
+        if (G_bolos_ux_context.settings_value < 6) {
+            G_bolos_ux_context.settings_value++;
         }
 
     redraw:
-        screen_settings_apply_internal(0, G_bolos_ux_context.onboarding_index,
+        screen_settings_apply_internal(0, G_bolos_ux_context.settings_value,
                                        os_setting_get(OS_SETTING_ROTATION),
-                                       os_setting_get(OS_SETTING_INVERT),
-                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
+                                       os_setting_get(OS_SETTING_INVERT));
         screen_settings_display_current();
         break;
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
         os_setting_set(OS_SETTING_BRIGHTNESS,
-                       G_bolos_ux_context.onboarding_index);
-        screen_settings_init(0);
+                       G_bolos_ux_context.settings_value);
+        screen_settings_apply_internal(1, 0, 0, 0);
+        UX_MENU_DISPLAY(UX_MENU_UNCHANGED_ENTRY, menu_settings_display, NULL);
         break;
     }
     return 0;
 }
 
 void screen_settings_brightness_init(void) {
-    G_bolos_ux_context.onboarding_index = os_setting_get(OS_SETTING_BRIGHTNESS);
-    if (G_bolos_ux_context.onboarding_index == 0) {
-        G_bolos_ux_context.onboarding_index = BRIGHTNESS_DEFAULT;
+    G_bolos_ux_context.settings_value = os_setting_get(OS_SETTING_BRIGHTNESS);
+    if (G_bolos_ux_context.settings_value == 0) {
+        G_bolos_ux_context.settings_value = BRIGHTNESS_DEFAULT;
     }
-}
-
-// ==========================================================================
-
-const bagl_element_t screen_settings_invert_elements[] = {
-    // erase
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // application name
-    {{BAGL_LABELINE, 0x00, 36, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px, 0},
-     "Invert",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_ICON, 0x01, 74, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_ON},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x02, 74, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_OFF},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // icons
-    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CROSS},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CHECK},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-};
-
-unsigned int
-screen_settings_invert_before_display(const bagl_element_t *element) {
-    switch (element->component.userid) {
-    case 0x01:
-        return G_bolos_ux_context.onboarding_index;
-    case 0x02:
-        return !G_bolos_ux_context.onboarding_index;
-    }
-
-    // display other elements only if screen setup, else, only redraw words
-    // value
-    return 1;
-}
-
-unsigned int screen_settings_invert_button(unsigned int button_mask,
-                                           unsigned int button_mask_counter) {
-    UNUSED(button_mask_counter);
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        G_bolos_ux_context.onboarding_index = 0;
-        goto redraw;
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        G_bolos_ux_context.onboarding_index = 1;
-
-    redraw:
-        os_setting_set(OS_SETTING_INVERT, G_bolos_ux_context.onboarding_index);
-        screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
-                                       os_setting_get(OS_SETTING_ROTATION),
-                                       G_bolos_ux_context.onboarding_index,
-                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
-        screen_settings_init(0);
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // save setting and redisplay list
-        os_setting_set(OS_SETTING_INVERT, G_bolos_ux_context.onboarding_index);
-        screen_settings_init(0);
-        break;
-    }
-    return 0;
-}
-
-void screen_settings_invert_init(void) {
-    G_bolos_ux_context.onboarding_index = os_setting_get(OS_SETTING_INVERT);
-}
-
-// ==========================================================================
-
-const bagl_element_t screen_settings_shufflePin_elements[] = {
-    // erase
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // application name
-    {{BAGL_LABELINE, 0x00, 31, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px, 0},
-     "Shuffle",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_ICON, 0x01, 77, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_ON},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x02, 77, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_OFF},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // icons
-    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CROSS},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CHECK},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-};
-
-unsigned int
-screen_settings_shufflePin_before_display(const bagl_element_t *element) {
-    switch (element->component.userid) {
-    case 0x01:
-        return G_bolos_ux_context.onboarding_index;
-    case 0x02:
-        return !G_bolos_ux_context.onboarding_index;
-    }
-
-    // display other elements only if screen setup, else, only redraw words
-    // value
-    return 1;
-}
-
-unsigned int
-screen_settings_shufflePin_button(unsigned int button_mask,
-                                  unsigned int button_mask_counter) {
-    UNUSED(button_mask_counter);
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        G_bolos_ux_context.onboarding_index = 0;
-        goto redraw;
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        G_bolos_ux_context.onboarding_index = 1;
-
-    redraw:
-        os_setting_set(OS_SETTING_SHUFFLE_PIN,
-                       G_bolos_ux_context.onboarding_index);
-        screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
-                                       os_setting_get(OS_SETTING_ROTATION),
-                                       os_setting_get(OS_SETTING_INVERT),
-                                       G_bolos_ux_context.onboarding_index);
-        screen_settings_init(0);
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // save setting and redisplay list
-        os_setting_set(OS_SETTING_SHUFFLE_PIN,
-                       G_bolos_ux_context.onboarding_index);
-        screen_settings_init(0);
-        break;
-    }
-    return 0;
-}
-
-void screen_settings_shufflePin_init(void) {
-    G_bolos_ux_context.onboarding_index =
-        os_setting_get(OS_SETTING_SHUFFLE_PIN);
-}
-
-// ==========================================================================
-
-const bagl_element_t screen_settings_rotation_elements[] = {
-    // erase
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
-      0, 0},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // application name
-    {{BAGL_LABELINE, 0x00, 35, 19, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px, 0},
-     "Rotate",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    {{BAGL_ICON, 0x01, 76, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_ON},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x02, 76, 11, 16, 10, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_TOGGLE_OFF},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
-    // icons
-    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CROSS},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
-      BAGL_GLYPH_ICON_CHECK},
-     NULL,
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-};
-
-unsigned int
-screen_settings_rotation_before_display(const bagl_element_t *element) {
-    switch (element->component.userid) {
-    case 0x01:
-        return G_bolos_ux_context.onboarding_index;
-    case 0x02:
-        return !G_bolos_ux_context.onboarding_index;
-    }
-
-    // display other elements only if screen setup, else, only redraw words
-    // value
-    return 1;
-}
-
-unsigned int screen_settings_rotation_button(unsigned int button_mask,
-                                             unsigned int button_mask_counter) {
-    UNUSED(button_mask_counter);
-    switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        G_bolos_ux_context.onboarding_index = 0;
-        goto redraw;
-
-    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        G_bolos_ux_context.onboarding_index = 180;
-
-    redraw:
-        os_setting_set(OS_SETTING_ROTATION,
-                       G_bolos_ux_context.onboarding_index);
-        screen_settings_apply_internal(0, os_setting_get(OS_SETTING_BRIGHTNESS),
-                                       G_bolos_ux_context.onboarding_index,
-                                       os_setting_get(OS_SETTING_INVERT),
-                                       os_setting_get(OS_SETTING_SHUFFLE_PIN));
-        screen_settings_init(0);
-        break;
-
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // save setting and redisplay list
-        os_setting_set(OS_SETTING_ROTATION,
-                       G_bolos_ux_context.onboarding_index);
-        screen_settings_init(0);
-        break;
-    }
-    return 0;
-}
-
-void screen_settings_rotation_init(void) {
-    G_bolos_ux_context.onboarding_index = os_setting_get(OS_SETTING_ROTATION);
 }
 
 // ==========================================================================
@@ -946,7 +377,7 @@ const bagl_element_t screen_settings_version_elements[] = {
      NULL,
      NULL},
     {{BAGL_LABELINE, 0x02, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
      G_bolos_ux_context.string_buffer,
      0,
      0,
@@ -976,12 +407,12 @@ const bagl_element_t screen_settings_version_elements[] = {
      NULL},
 };
 
-unsigned int
+const bagl_element_t *
 screen_settings_version_before_display(const bagl_element_t *element) {
     switch (element->component.userid) {
     // previous setting
     case 0x01:
-        switch (G_bolos_ux_context.onboarding_index) {
+        switch (G_bolos_ux_context.settings_value) {
         // SE
         case 0:
             strcpy(G_bolos_ux_context.string_buffer, "Secure Element");
@@ -994,7 +425,7 @@ screen_settings_version_before_display(const bagl_element_t *element) {
         }
         break;
     case 0x02:
-        switch (G_bolos_ux_context.onboarding_index) {
+        switch (G_bolos_ux_context.settings_value) {
         // SE
         case 0:
             strcpy(G_bolos_ux_context.string_buffer, VERSION);
@@ -1011,15 +442,15 @@ screen_settings_version_before_display(const bagl_element_t *element) {
         break;
 
     case 0x10:
-        return G_bolos_ux_context.onboarding_index != 0;
+        return (G_bolos_ux_context.settings_value != 0) ? element : NULL;
 
     case 0x11:
-        return G_bolos_ux_context.onboarding_index != 1;
+        return (G_bolos_ux_context.settings_value != 1) ? element : NULL;
     }
 
     // display other elements only if screen setup, else, only redraw words
     // value
-    return 1;
+    return element;
 }
 
 unsigned int screen_settings_version_button(unsigned int button_mask,
@@ -1027,11 +458,11 @@ unsigned int screen_settings_version_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        G_bolos_ux_context.onboarding_index = 0;
+        G_bolos_ux_context.settings_value = 0;
         goto redraw;
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        G_bolos_ux_context.onboarding_index = 1;
+        G_bolos_ux_context.settings_value = 1;
 
     redraw:
         screen_settings_display_current();
@@ -1039,81 +470,293 @@ unsigned int screen_settings_version_button(unsigned int button_mask,
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
         // go back to settings list
-        screen_settings_init(0);
+        UX_MENU_DISPLAY(UX_MENU_UNCHANGED_ENTRY, menu_settings_device, NULL);
         break;
     }
     return 0;
 }
 
 void screen_settings_version_init(void) {
-    G_bolos_ux_context.onboarding_index = 0;
+    G_bolos_ux_context.settings_value = 0;
+}
+
+// ==========================================================================
+
+void menu_settings_rotate_init(unsigned int ignored) {
+    UNUSED(ignored);
+    UX_MENU_DISPLAY(os_setting_get(OS_SETTING_ROTATION), menu_settings_rotate,
+                    NULL);
+}
+
+// ==========================================================================
+
+void menu_settings_invert_init(unsigned int ignored) {
+    UNUSED(ignored);
+    UX_MENU_DISPLAY(os_setting_get(OS_SETTING_INVERT), menu_settings_invert,
+                    NULL);
+}
+
+// ==========================================================================
+
+void menu_settings_autolock_init(unsigned int index) {
+    index = 0;
+    switch (os_setting_get(OS_SETTING_AUTO_LOCK_DELAY)) {
+    case -1UL:
+        index = 0;
+        break;
+    case 60000:
+        index = 1;
+        break;
+    case 180000:
+        index = 2;
+        break;
+    case 300000:
+        index = 3;
+        break;
+    case 0: // the undefined setting value
+    case 6000000:
+        index = 4;
+        break;
+    }
+    UX_MENU_DISPLAY(index, menu_settings_autolock, NULL);
+}
+
+// ==========================================================================
+
+void menu_settings_shufflepin_init(unsigned int ignored) {
+    UNUSED(ignored);
+    UX_MENU_DISPLAY(os_setting_get(OS_SETTING_SHUFFLE_PIN),
+                    menu_settings_shufflepin, NULL);
 }
 
 // ==========================================================================
 
 void screen_settings_help_ended(void) {
-    screen_settings_init(0);
+    UX_MENU_DISPLAY(os_perso_isonboarded() ? 3 : 1,
+                    os_perso_isonboarded() ? menu_settings
+                                           : menu_settings_not_onboarded,
+                    NULL);
 }
 
-void screen_settings_help_init(void) {
-    screen_help_init(screen_settings_help_ended);
+// ==========================================================================
+
+void screen_settings_autolock_change(unsigned int duration) {
+    os_setting_set(OS_SETTING_AUTO_LOCK_DELAY, duration);
+    screen_settings_apply_internal(1, 0, 0, 0);
+    UX_MENU_DISPLAY(0, menu_settings_security, NULL);
+}
+
+// ==========================================================================
+
+void screen_settings_rotate_change(unsigned int enabled) {
+    os_setting_set(OS_SETTING_ROTATION, enabled);
+    screen_settings_apply_internal(1, 0, 0, 0);
+    UX_MENU_DISPLAY(1, menu_settings_display, NULL);
+}
+
+// ==========================================================================
+
+void screen_settings_invert_change(unsigned int enabled) {
+    os_setting_set(OS_SETTING_INVERT, enabled);
+    screen_settings_apply_internal(1, 0, 0, 0);
+    UX_MENU_DISPLAY(2, menu_settings_display, NULL);
+}
+
+// ==========================================================================
+
+void screen_settings_shufflepin_change(unsigned int enabled) {
+    os_setting_set(OS_SETTING_SHUFFLE_PIN, enabled);
+    screen_settings_apply_internal(1, 0, 0, 0);
+    UX_MENU_DISPLAY(2, menu_settings_security, NULL);
 }
 
 // ==========================================================================
 
 const screen_desc_t screen_settings_desc[] = {
-    {"Brightness", screen_settings_brightness_elements,
+    {screen_settings_brightness_elements,
      ARRAYLEN(screen_settings_brightness_elements),
      screen_settings_brightness_before_display,
      screen_settings_brightness_button, screen_settings_brightness_init},
 
-    {"Rotate screen", screen_settings_rotation_elements,
-     ARRAYLEN(screen_settings_rotation_elements),
-     screen_settings_rotation_before_display, screen_settings_rotation_button,
-     screen_settings_rotation_init},
-
-    {"Invert colors", screen_settings_invert_elements,
-     ARRAYLEN(screen_settings_invert_elements),
-     screen_settings_invert_before_display, screen_settings_invert_button,
-     screen_settings_invert_init},
-
-    {"Shuffle PIN", screen_settings_shufflePin_elements,
-     ARRAYLEN(screen_settings_shufflePin_elements),
-     screen_settings_shufflePin_before_display,
-     screen_settings_shufflePin_button, screen_settings_shufflePin_init},
-
-    {"Firmware", screen_settings_version_elements,
+    {screen_settings_version_elements,
      ARRAYLEN(screen_settings_version_elements),
      screen_settings_version_before_display, screen_settings_version_button,
      screen_settings_version_init},
-
-    {"Help", NULL, 0, NULL, NULL, screen_settings_help_init},
-
-    {"Quit app", NULL, 0, NULL, NULL, NULL},
 };
 
-void screen_settings_init(unsigned int initial) {
-    screen_state_init();
+// ==========================================================================
 
-    // static dashboard content
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
-        screen_settings_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
-        ARRAYLEN(screen_settings_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+void menu_callback(unsigned int userid) {
+    G_bolos_ux_context.settings_index = userid;
+    switch (userid) {
+    case -6: // change pin
+        screen_settings_change_pin_1_2_pin_init(1);
+        return;
 
-    // ensure the string_buffer will be set before each button is displayed
-    G_bolos_ux_context.screen_before_element_display_callback =
-        screen_settings_before_element_display_callback;
-    G_bolos_ux_context.button_push_callback = screen_settings_button;
+    case -5: // erase all
+        screen_settings_erase_all_init();
+        return;
 
-    if (initial) {
-        G_bolos_ux_context.onboarding_step = os_perso_isonboarded() ? 0 : 4;
-        bolos_ux_hslider3_init(ARRAYLEN(screen_settings_desc) -
-                               G_bolos_ux_context.onboarding_step);
+    case -4: // set persistent passphrase
+        screen_settings_passphrase_attach_1_init();
+        return;
+
+    case -3: // set temporary passphrase
+        screen_settings_passphrase_temporary_1_init();
+        return;
+
+    case -2: // help
+        screen_help_init(screen_settings_help_ended);
+        return;
+
+    case -1:
+        // request animation when settings exits
+        G_bolos_ux_context.dashboard_redisplayed = 1;
+        // display dashboard
+        screen_dashboard_init();
+        return;
     }
+    // display current settings
+    ((appmain_t)PIC(screen_settings_desc[G_bolos_ux_context.settings_index]
+                        .setting_init))();
+    screen_settings_display_current();
+}
 
-    screen_display_init();
+/*
+*Display
+*  Brightness
+*    7 levels
+*  Invert colors
+*    Enabled/Disabled
+*  Rotate screen
+*    0 / 180
+*  Back
+*Security
+*  Auto lock
+*    OFF
+*    1 minute
+*    3 minutes
+*    5 minutes
+*    10 minutes
+*  Shuffle PIN
+*    Enabled/Disabled
+*  Change PIN
+*    Flow
+*  Passphrase
+*    Set temporary
+*      Flow
+*    Attach to new PIN
+*      Flow
+*    Back
+*  Back
+Device
+  Firmware
+    SE/MCU
+  Factory reset
+    Flow
+  Back
+Help
+Quit app
+*/
+
+const ux_menu_entry_t menu_settings_rotate[] = {
+    {NULL, screen_settings_rotate_change, 0, NULL, "No", NULL, 0, 0},
+    {NULL, screen_settings_rotate_change, 1, NULL, "Yes", NULL, 0, 0},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_invert[] = {
+    {NULL, screen_settings_invert_change, 0, NULL, "No", NULL, 0, 0},
+    {NULL, screen_settings_invert_change, 1, NULL, "Yes", NULL, 0, 0},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_shufflepin[] = {
+    {NULL, screen_settings_shufflepin_change, 0, NULL, "No", NULL, 0, 0},
+    {NULL, screen_settings_shufflepin_change, 1, NULL, "Yes", NULL, 0, 0},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_display[] = {
+    {NULL, menu_callback, 0, NULL, "Brightness", NULL, 0, 0},
+    {NULL, menu_settings_rotate_init, 0, NULL, "Rotate screen", NULL, 0, 0},
+    {NULL, menu_settings_invert_init, 0, NULL, "Invert colors", NULL, 0, 0},
+    {menu_settings, NULL, 0, &C_badge_back, "Back", NULL, 61, 40},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_passphrase[] = {
+    {NULL, menu_callback, -3, NULL, "Set temporary", NULL, 0, 0},
+    {NULL, menu_callback, -4, NULL, "Attach to a PIN", NULL, 0, 0},
+    {menu_settings_security, NULL, 3, &C_badge_back, "Back", NULL, 61, 40},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_autolock[] = {
+    {NULL, screen_settings_autolock_change, -1UL, NULL, "OFF", NULL, 0, 0},
+    {NULL, screen_settings_autolock_change, 60000, NULL, "1 minute", NULL, 0,
+     0},
+    {NULL, screen_settings_autolock_change, 180000, NULL, "3 minutes", NULL, 0,
+     0},
+    {NULL, screen_settings_autolock_change, 300000, NULL, "5 minutes", NULL, 0,
+     0},
+    {NULL, screen_settings_autolock_change, 6000000, NULL, "10 minutes", NULL,
+     0, 0},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_security[] = {
+    {NULL, menu_settings_autolock_init, 0, NULL, "Auto-lock", NULL, 0, 0},
+    {NULL, menu_callback, -6, NULL, "Change PIN", NULL, 0, 0},
+    {NULL, menu_settings_shufflepin_init, 0, NULL, "Shuffle PIN", NULL, 0, 0},
+    {menu_settings_passphrase, NULL, 0, NULL, "Passphrase", NULL, 0, 0},
+    {menu_settings, NULL, 1, &C_badge_back, "Back", NULL, 61, 40},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_device[] = {
+    {NULL, menu_callback, 1, NULL, "Firmware", NULL, 0, 0},
+    {NULL, menu_callback, -5, NULL, "Reset all", NULL, 0, 0},
+    {menu_settings, NULL, 2, &C_badge_back, "Back", NULL, 61, 40},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_device_not_onboard[] = {
+    {NULL, menu_callback, 1, NULL, "Firmware", NULL, 0, 0},
+    {NULL, menu_callback, -5, NULL, "Reset all", NULL, 0, 0},
+    {menu_settings_not_onboarded, NULL, 0, &C_badge_back, "Back", NULL, 61, 40},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings[] = {
+    {menu_settings_display, NULL, 0, NULL, "Display", NULL, 0, 0},
+    {menu_settings_security, NULL, 0, NULL, "Security", NULL, 0, 0},
+    {menu_settings_device, NULL, 0, NULL, "Device", NULL, 0, 0},
+    {NULL, menu_callback, -2, NULL, "Assistance", NULL, 0, 0},
+    {NULL, menu_callback, -1, &C_icon_dashboard, "Quit app", NULL, 50, 29},
+    UX_MENU_END};
+
+const ux_menu_entry_t menu_settings_not_onboarded[] = {
+    {menu_settings_device_not_onboard, NULL, 0, NULL, "Device", NULL, 0, 0},
+    {NULL, menu_callback, -2, NULL, "Assistance", NULL, 0, 0},
+    {NULL, menu_callback, -1, &C_icon_dashboard, "Quit app", NULL, 50, 29},
+    UX_MENU_END};
+
+void screen_settings_attach_to_pin(void) {
+    UX_MENU_DISPLAY(1, menu_settings_passphrase, NULL);
+}
+
+void screen_settings_set_temporary(void) {
+    UX_MENU_DISPLAY(0, menu_settings_passphrase, NULL);
+}
+
+void screen_settings_change_pin(void) {
+    UX_MENU_DISPLAY(1, menu_settings_security, NULL);
+}
+
+void screen_settings_erase_all(void) {
+    UX_MENU_DISPLAY(1,
+                    os_perso_isonboarded() ? menu_settings_device
+                                           : menu_settings_device_not_onboard,
+                    NULL);
+}
+
+void screen_settings_init(unsigned int initial) {
+    UX_MENU_DISPLAY(initial ? 0 : UX_MENU_UNCHANGED_ENTRY,
+                    os_perso_isonboarded() ? menu_settings
+                                           : menu_settings_not_onboarded,
+                    NULL);
 }
 
 #endif // OS_IO_SEPROXYHAL

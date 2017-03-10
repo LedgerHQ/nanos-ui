@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -23,7 +23,11 @@
 
 #include "bolos_ux_common.h"
 
+#ifdef BOLOS_RELEASE
 #define DASHBOARD_SETTINGS_APPNAME "Settings"
+#else
+#define DASHBOARD_SETTINGS_APPNAME "NOT A RELEASE"
+#endif // BOLOS_RELEASE
 
 #ifdef OS_IO_SEPROXYHAL
 
@@ -135,7 +139,7 @@ const bagl_element_t screen_dashboard_elements[] = {
      NULL},
 
     // potentially larger than screen, enable horizontal scrolling
-    {{BAGL_LABELINE, 0x23, 0, 28, 128, 32, 10, 0, 0, 0xFFFFFF, 0x000000,
+    {{BAGL_LABELINE, 0x23, 13, 28, 102, 11, 10, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 26},
      G_bolos_ux_context.string_buffer,
      0,
@@ -159,25 +163,6 @@ const bagl_element_t screen_dashboard_unsigned_app_elements[] = {
      NULL,
      NULL},
 
-    {{BAGL_LABELINE, 0x00, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Open non",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-    {{BAGL_LABELINE, 0x00, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
-      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "genuine app?",
-     0,
-     0,
-     0,
-     NULL,
-     NULL,
-     NULL},
-
     {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
       BAGL_GLYPH_ICON_CROSS},
      NULL,
@@ -190,6 +175,44 @@ const bagl_element_t screen_dashboard_unsigned_app_elements[] = {
     {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
       BAGL_GLYPH_ICON_CHECK},
      NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    {{BAGL_LABELINE, 0x10, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Open non",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x10, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "genuine app?",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+
+    {{BAGL_LABELINE, 0x11, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Identifier",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x31, 0, 26, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     G_bolos_ux_context.string_buffer,
      0,
      0,
      0,
@@ -276,27 +299,13 @@ unsigned int screen_dashboard_get_app(unsigned int nth,
 }
 
 void screen_dashboard_disable_bolos_before_app(void) {
-    // disable ticker
-    G_io_seproxyhal_spi_buffer[0] = SEPROXYHAL_TAG_SET_TICKER_INTERVAL;
-    G_io_seproxyhal_spi_buffer[1] = 0;
-    G_io_seproxyhal_spi_buffer[2] = 2;
-    G_io_seproxyhal_spi_buffer[3] = 0;
-    G_io_seproxyhal_spi_buffer[4] = 0;
-    io_seproxyhal_spi_send(G_io_seproxyhal_spi_buffer, 5);
+    io_seproxyhal_disable_io();
 
-    // ble off
-    G_io_seproxyhal_spi_buffer[0] = SEPROXYHAL_TAG_BLE_RADIO_POWER;
-    G_io_seproxyhal_spi_buffer[1] = 0;
-    G_io_seproxyhal_spi_buffer[2] = 1;
-    G_io_seproxyhal_spi_buffer[3] = 0;
-    io_seproxyhal_spi_send(G_io_seproxyhal_spi_buffer, 4);
-
-    // usb off
-    G_io_seproxyhal_spi_buffer[0] = SEPROXYHAL_TAG_USB_CONFIG;
-    G_io_seproxyhal_spi_buffer[1] = 0;
-    G_io_seproxyhal_spi_buffer[2] = 1;
-    G_io_seproxyhal_spi_buffer[3] = SEPROXYHAL_TAG_USB_CONFIG_DISCONNECT;
-    io_seproxyhal_spi_send(G_io_seproxyhal_spi_buffer, 4);
+    // pop all screens as we're running the app => reinited next call when first
+    // screen will be requested to be displayed
+    os_memset(G_bolos_ux_context.screen_stack, 0,
+              sizeof(G_bolos_ux_context.screen_stack));
+    G_bolos_ux_context.screen_stack_count = 0;
 }
 
 unsigned int
@@ -325,53 +334,52 @@ screen_dashboard_unsigned_app_button(unsigned int button_mask,
     return 0;
 }
 
+const bagl_element_t *
+screen_dashboard_unsigned_app_before_element_display_callback(
+    const bagl_element_t *element) {
+    screen_dashboard_t db;
+    int i = 0;
+
+    if ((element->component.userid & 0x10) &&
+        (element->component.userid & 0x0F) !=
+            G_bolos_ux_context.onboarding_index) {
+        return NULL;
+    }
+
+    switch (element->component.userid) {
+    case 0x31:
+        do {
+            screen_dashboard_get_app(
+                G_bolos_ux_context.dashboard_last_selected + i, &db);
+            i++;
+        } while (db.app.flags & APPLICATION_FLAG_BOLOS_UX);
+        screen_hex_identifier_string_buffer(db.app.hash, 32);
+        break;
+    }
+    return element;
+}
+
 unsigned int screen_dashboard_button(unsigned int button_mask,
                                      unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
     switch (button_mask) {
-    case BUTTON_LEFT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_LEFT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_LEFT:
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_LEFT:
-        /*
-        // don't go too far
-        if (G_bolos_ux_context.hslider3_after == BOLOS_UX_HSLIDER3_NONE) {
-          return 0;
-        }
-        */
         bolos_ux_hslider3_previous();
         goto redraw;
 
-    case BUTTON_RIGHT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_RIGHT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_RIGHT:
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_RIGHT:
         bolos_ux_hslider3_next();
 
     redraw:
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_dashboard_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count = ARRAYLEN(screen_dashboard_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        screen_display_init();
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        screen_display_init(0);
         break;
 
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
@@ -395,17 +403,27 @@ unsigned int screen_dashboard_button(unsigned int button_mask,
                     G_bolos_ux_context.hslider3_current + i, &db);
                 i++;
             } while (db.app.flags & APPLICATION_FLAG_BOLOS_UX);
+
+            // requested non genuine validation
             if ((db.app.flags &
-                 (APPLICATION_FLAG_ISSUER | APPLICATION_FLAG_SIGNED)) == 0) {
-                G_bolos_ux_context.screen_current_element_arrays[0]
+                 (APPLICATION_FLAG_ISSUER | APPLICATION_FLAG_CUSTOM_CA |
+                  APPLICATION_FLAG_SIGNED)) == 0) {
+                G_bolos_ux_context.screen_stack[0]
+                    .element_arrays[0]
                     .element_array = screen_dashboard_unsigned_app_elements;
-                G_bolos_ux_context.screen_current_element_arrays[0]
+                G_bolos_ux_context.screen_stack[0]
+                    .element_arrays[0]
                     .element_array_count =
                     ARRAYLEN(screen_dashboard_unsigned_app_elements);
-                G_bolos_ux_context.screen_current_element_arrays_count = 1;
-                G_bolos_ux_context.button_push_callback =
+                G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+                G_bolos_ux_context.screen_stack[0]
+                    .screen_before_element_display_callback =
+                    screen_dashboard_unsigned_app_before_element_display_callback;
+
+                screen_consent_ticker_init(2, 3000, 0);
+                // override the consent callback, just use the logic
+                G_bolos_ux_context.screen_stack[0].button_push_callback =
                     screen_dashboard_unsigned_app_button;
-                screen_display_init();
             } else {
                 screen_dashboard_disable_bolos_before_app();
 
@@ -421,7 +439,7 @@ unsigned int screen_dashboard_button(unsigned int button_mask,
     return 0;
 }
 
-unsigned int screen_dashboard_before_element_display_callback(
+const bagl_element_t *screen_dashboard_before_element_display_callback(
     const bagl_element_t *element) {
     screen_dashboard_t db;
     int i;
@@ -431,7 +449,7 @@ unsigned int screen_dashboard_before_element_display_callback(
         if (G_bolos_ux_context.hslider3_before == BOLOS_UX_HSLIDER3_NONE ||
             G_bolos_ux_context.hslider3_before ==
                 G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         i = 0;
         do {
@@ -445,21 +463,21 @@ unsigned int screen_dashboard_before_element_display_callback(
     case 0x11:
         if (G_bolos_ux_context.hslider3_before !=
             G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         break;
     // left arrow
     case 0x41:
         /*
         if (G_bolos_ux_context.hslider3_before == BOLOS_UX_HSLIDER3_NONE) {
-          return 0;
+          return NULL;
         }
         */
         break;
     // left '-'
     case 0x02:
         if (G_bolos_ux_context.hslider3_before == BOLOS_UX_HSLIDER3_NONE) {
-            return 0;
+            return NULL;
         }
         break;
 
@@ -467,7 +485,7 @@ unsigned int screen_dashboard_before_element_display_callback(
     case 0x03:
         if (G_bolos_ux_context.hslider3_current ==
             G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         i = 0;
         do {
@@ -481,14 +499,14 @@ unsigned int screen_dashboard_before_element_display_callback(
     case 0x13:
         if (G_bolos_ux_context.hslider3_current !=
             G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         break;
 
     // right '-'
     case 0x04:
         if (G_bolos_ux_context.hslider3_after == BOLOS_UX_HSLIDER3_NONE) {
-            return 0;
+            return NULL;
         }
         break;
 
@@ -497,7 +515,7 @@ unsigned int screen_dashboard_before_element_display_callback(
         if (G_bolos_ux_context.hslider3_after == BOLOS_UX_HSLIDER3_NONE ||
             G_bolos_ux_context.hslider3_after ==
                 G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         i = 0;
         do {
@@ -512,7 +530,7 @@ unsigned int screen_dashboard_before_element_display_callback(
     case 0x15:
         if (G_bolos_ux_context.hslider3_after !=
             G_bolos_ux_context.hslider3_total - 1) {
-            return 0;
+            return NULL;
         }
         break;
 
@@ -541,7 +559,7 @@ unsigned int screen_dashboard_before_element_display_callback(
 
     // display other elements only if screen setup, else, only redraw words
     // value
-    return 1;
+    return element;
 }
 
 unsigned int screen_dashboard_displayed(unsigned int i) {
@@ -565,27 +583,30 @@ unsigned int screen_dashboard_displayed(unsigned int i) {
     return 1;
 }
 
-void screen_dashboard_init(void) {
+void screen_dashboard_prepare(void) {
     unsigned int count;
     screen_dashboard_t db;
 
-    screen_state_init();
+    screen_state_init(0);
 
     // static dashboard content
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_dashboard_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_dashboard_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
     // ensure the string_buffer will be set before each button is displayed
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[0].screen_before_element_display_callback =
         screen_dashboard_before_element_display_callback;
-    G_bolos_ux_context.button_push_callback = screen_dashboard_button;
+    G_bolos_ux_context.screen_stack[0].button_push_callback =
+        screen_dashboard_button;
 
     // dashboard says ok when done displaying
-    G_bolos_ux_context.exit_code_after_elements_displayed = BOLOS_UX_OK;
-    G_bolos_ux_context.screen_displayed_callback = screen_dashboard_displayed;
+    G_bolos_ux_context.screen_stack[0].exit_code_after_elements_displayed =
+        BOLOS_UX_OK;
+    G_bolos_ux_context.screen_stack[0].displayed_callback =
+        screen_dashboard_displayed;
 
     // count displayable apps
     G_bolos_ux_context.hslider3_total = 0;
@@ -603,14 +624,15 @@ void screen_dashboard_init(void) {
     // yolo last selected
     if (G_bolos_ux_context.dashboard_last_selected <
         G_bolos_ux_context.hslider3_total) {
-        // don't modify directly to avoid invalid indexes
-        while (G_bolos_ux_context.hslider3_current !=
-               G_bolos_ux_context.dashboard_last_selected) {
-            bolos_ux_hslider3_next();
-        }
+        bolos_ux_hslider3_set_current(
+            G_bolos_ux_context.dashboard_last_selected);
     }
+}
 
-    screen_display_init();
+void screen_dashboard_init(void) {
+    screen_dashboard_prepare();
+
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

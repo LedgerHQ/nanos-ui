@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -29,9 +29,8 @@ const struct screen_help_strings_s {
     const char *line1;
     const char *line2;
 } const screen_help_strings[] = {
-    {"Website", "help.ledgerwallet.com"},
-    {"Email", "help@ledgerwallet.com"},
-    {"Phone", "+33 9 67 30 01 71"},
+    {"Website", "help.ledgerwallet.com"}, {"Email", "help@ledgerwallet.com"},
+    //{"Phone", "+33 9 67 30 01 71"},
 };
 
 const bagl_element_t screen_help_x_elements[] = {
@@ -89,7 +88,7 @@ const bagl_element_t screen_help_0_elements[] = {
      NULL},
     {{BAGL_LABELINE, 0x00, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "contact Legder support.",
+     "contact Ledger support.",
      0,
      0,
      0,
@@ -98,7 +97,7 @@ const bagl_element_t screen_help_0_elements[] = {
      NULL},
 };
 
-unsigned int
+const bagl_element_t *
 screen_help_before_element_display_callback(const bagl_element_t *element) {
     switch (element->component.userid) {
     case 0x01:
@@ -115,7 +114,7 @@ screen_help_before_element_display_callback(const bagl_element_t *element) {
                 screen_help_strings[G_bolos_ux_context.help_screen_idx].line2));
         break;
     }
-    return 1;
+    return element;
 }
 
 unsigned int screen_help_x_button(unsigned int button_mask,
@@ -123,13 +122,15 @@ unsigned int screen_help_x_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // re-enter the first pin
+        // help flow ended
         if (G_bolos_ux_context.help_screen_idx ==
             ARRAYLEN(screen_help_strings) - 1) {
+            // never called from an app
+            screen_stack_pop();
             G_bolos_ux_context.help_ended_callback();
         } else {
             G_bolos_ux_context.help_screen_idx++;
-            screen_display_init();
+            screen_display_init(G_bolos_ux_context.screen_stack_count - 1);
         }
         break;
     }
@@ -141,38 +142,75 @@ unsigned int screen_help_0_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        G_bolos_ux_context.button_push_callback = screen_help_x_button;
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
-            screen_help_x_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context
+            .screen_stack[G_bolos_ux_context.screen_stack_count - 1]
+            .button_push_callback = screen_help_x_button;
+        G_bolos_ux_context
+            .screen_stack[G_bolos_ux_context.screen_stack_count - 1]
+            .element_arrays[0]
+            .element_array = screen_help_x_elements;
+        G_bolos_ux_context
+            .screen_stack[G_bolos_ux_context.screen_stack_count - 1]
+            .element_arrays[0]
             .element_array_count = ARRAYLEN(screen_help_x_elements);
         G_bolos_ux_context.help_screen_idx = 0;
-        screen_display_init();
+        screen_display_init(G_bolos_ux_context.screen_stack_count - 1);
         break;
     }
     return 1;
 }
 
 void screen_help_init(appmain_t help_ended_callback) {
-    screen_state_init();
+    // this is a modal
+    unsigned int stack_slot =
+        screen_stack_is_element_array_present(screen_help_0_elements);
+
+    // screen already present, can't be redisplayed
+    if (stack_slot &&
+        (stack_slot - 1 != G_bolos_ux_context.screen_stack_count - 1)) {
+        screen_stack_remove(stack_slot - 1);
+    }
+
+    stack_slot = screen_stack_is_element_array_present(screen_help_x_elements);
+
+    // screen already present, can't be redisplayed
+    if (stack_slot &&
+        (stack_slot - 1 != G_bolos_ux_context.screen_stack_count - 1)) {
+        screen_stack_remove(stack_slot - 1);
+    }
+
+    /*
+    if
+    (screen_stack_is_element_array_present(screen_modal_help_static_elements)) {
+      return;
+    }
+    */
+
+    stack_slot = screen_stack_push();
+
+    screen_state_init(stack_slot);
 
     if (help_ended_callback) {
         G_bolos_ux_context.help_ended_callback = help_ended_callback;
     }
 
     // static dashboard content
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
-        screen_help_0_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
-        ARRAYLEN(screen_help_0_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[stack_slot]
+        .element_arrays[0]
+        .element_array = screen_help_0_elements;
+    G_bolos_ux_context.screen_stack[stack_slot]
+        .element_arrays[0]
+        .element_array_count = ARRAYLEN(screen_help_0_elements);
+    G_bolos_ux_context.screen_stack[stack_slot].element_arrays_count = 1;
 
     // ensure the string_buffer will be set before each button is displayed
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[stack_slot]
+        .screen_before_element_display_callback =
         screen_help_before_element_display_callback;
-    G_bolos_ux_context.button_push_callback = screen_help_0_button;
+    G_bolos_ux_context.screen_stack[stack_slot].button_push_callback =
+        screen_help_0_button;
 
-    screen_display_init();
+    screen_display_init(stack_slot);
 }
 
 #endif // OS_IO_SEPROXYHAL

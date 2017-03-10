@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ const bagl_element_t screen_consent_foreign_key_elements[] = {
 
     {{BAGL_LABELINE, 0x10, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "Trust unknown",
+     "Allow unknown",
      0,
      0,
      0,
@@ -49,7 +49,7 @@ const bagl_element_t screen_consent_foreign_key_elements[] = {
      NULL},
     {{BAGL_LABELINE, 0x10, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "app manager?",
+     "manager?",
      0,
      0,
      0,
@@ -66,7 +66,7 @@ const bagl_element_t screen_consent_foreign_key_elements[] = {
      NULL,
      NULL,
      NULL},
-    {{BAGL_LABELINE, 0x31, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+    {{BAGL_LABELINE, 0x31, 0, 26, 128, 11, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
      G_bolos_ux_context.string_buffer,
      0,
@@ -96,50 +96,40 @@ const bagl_element_t screen_consent_foreign_key_elements[] = {
      NULL},
 };
 
-unsigned int screen_consent_foreign_key_before_element_display_callback(
+const bagl_element_t *
+screen_consent_foreign_key_before_element_display_callback(
     const bagl_element_t *element) {
     if ((element->component.userid & 0x10) &&
         (element->component.userid & 0x0F) !=
             G_bolos_ux_context.onboarding_index) {
-        return 0;
+        return NULL;
     }
 
     switch (element->component.userid) {
     case 0x31:
-        // compact hash of the app
-        array_hexstr(G_bolos_ux_context.string_buffer,
-                     G_bolos_ux_context.parameters.u.foreign_key.host_pubkey.W,
-                     BOLOS_UX_HASH_LENGTH / 2);
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2] = '.';
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2 + 1] =
-            '.';
-        G_bolos_ux_context.string_buffer[BOLOS_UX_HASH_LENGTH / 2 * 2 + 2] =
-            '.';
-        array_hexstr(
-            G_bolos_ux_context.string_buffer + BOLOS_UX_HASH_LENGTH / 2 * 2 + 3,
-            G_bolos_ux_context.parameters.u.foreign_key.host_pubkey.W +
-                G_bolos_ux_context.parameters.u.foreign_key.host_pubkey.W_len -
-                BOLOS_UX_HASH_LENGTH / 2,
-            BOLOS_UX_HASH_LENGTH / 2);
+        screen_hex_identifier_string_buffer(
+            G_bolos_ux_context.parameters.u.foreign_key.host_pubkey.W,
+            G_bolos_ux_context.parameters.u.foreign_key.host_pubkey.W_len);
+
         break;
     }
-    return 1;
+    return element;
 }
 
 void screen_consent_foreign_key_init(void) {
-    screen_state_init();
+    screen_state_init(0);
 
     // display the welcome screen first
 
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_consent_foreign_key_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_consent_foreign_key_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].screen_before_element_display_callback =
         screen_consent_foreign_key_before_element_display_callback;
 
-    screen_consent_ticker_init(2, CONSENT_INTERVAL_MS);
+    screen_consent_ticker_init(2, 2000, 0);
 }
 
 #endif // OS_IO_SEPROXYHAL

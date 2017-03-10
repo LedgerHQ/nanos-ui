@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -159,7 +159,8 @@ const bagl_element_t screen_onboarding_4_confirm_invalid_elements[] = {
      NULL},
 };
 
-unsigned int screen_onboarding_4_confirm_before_element_display_callback(
+const bagl_element_t *
+screen_onboarding_4_confirm_before_element_display_callback(
     const bagl_element_t *element) {
     switch (element->component.userid) {
     // word index element
@@ -196,7 +197,7 @@ unsigned int screen_onboarding_4_confirm_before_element_display_callback(
 
     // display other elements only if screen setup, else, only redraw words
     // value
-    return 1;
+    return element;
 }
 
 unsigned int
@@ -212,15 +213,16 @@ void screen_onboarding_4_confirm_next_word(void) {
         // check if all words matched
         if (!G_bolos_ux_context.onboarding_words_are_valid) {
             // restart word confirmation
-            G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+            G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
                 screen_onboarding_4_confirm_invalid_elements;
-            G_bolos_ux_context.screen_current_element_arrays[0]
+            G_bolos_ux_context.screen_stack[0]
+                .element_arrays[0]
                 .element_array_count =
                 ARRAYLEN(screen_onboarding_4_confirm_invalid_elements);
-            G_bolos_ux_context.screen_current_element_arrays_count = 1;
-            G_bolos_ux_context.button_push_callback =
+            G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+            G_bolos_ux_context.screen_stack[0].button_push_callback =
                 screen_onboarding_4_confirm_invalid_button;
-            screen_display_init();
+            screen_display_init(0);
         } else {
             screen_onboarding_7_processing_init();
         }
@@ -230,7 +232,8 @@ void screen_onboarding_4_confirm_next_word(void) {
         // select next word to check
         do {
             // randomize word to confirm
-            G_bolos_ux_context.onboarding_step_checked = cx_rng_u8() % 24;
+            G_bolos_ux_context.onboarding_step_checked =
+                cx_rng_u8() % G_bolos_ux_context.onboarding_kind;
         } while (G_bolos_ux_context.onboarding_words_checked &
                  (1 << G_bolos_ux_context.onboarding_step_checked));
         // mark word index as checked
@@ -238,20 +241,22 @@ void screen_onboarding_4_confirm_next_word(void) {
             1 << G_bolos_ux_context.onboarding_step_checked;
 
         // start display with any word (avoid guess :p)
-        G_bolos_ux_context.onboarding_step = cx_rng_u8() % 24;
+        G_bolos_ux_context.onboarding_step =
+            cx_rng_u8() % G_bolos_ux_context.onboarding_kind;
         G_bolos_ux_context.onboarding_step_checked_inc =
             /*(cx_rng_u8()%1)*2 +*/ 1; // ensure a completely random word order
                                        // display (giggle)
 
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_4_confirm_words_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_4_confirm_words_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_4_confirm_words_button;
-        screen_display_init();
+        screen_display_init(0);
     }
 }
 
@@ -270,68 +275,55 @@ screen_onboarding_4_confirm_button(unsigned int button_mask,
 unsigned int
 screen_onboarding_4_confirm_words_button(unsigned int button_mask,
                                          unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
     switch (button_mask) {
-    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // check if current word matches,
-        if (G_bolos_ux_context.onboarding_step !=
-            G_bolos_ux_context.onboarding_step_checked) {
+    case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT: {
+        // check if current word matches (content, not index, as the same word
+        // might happen to occur more than once in a seed)
+        unsigned char *word = (unsigned char *)G_bolos_ux_context.words_buffer;
+        if (bolos_ux_get_word_ptr(&word, G_bolos_ux_context.words_buffer_length,
+                                  G_bolos_ux_context.onboarding_step_checked) !=
+                strlen(G_bolos_ux_context.string_buffer) ||
+            memcmp(word, G_bolos_ux_context.string_buffer,
+                   strlen(G_bolos_ux_context.string_buffer))) {
             // not matching since here, don't tell the user nao, to avoid
-            // bruteforcing each word. and make him write the words instead
+            // bruteforcing each word. and make him rewrite the words instead
             G_bolos_ux_context.onboarding_words_are_valid = 0;
         }
 
         // prepare to confirm next word or finish onboarding
         screen_onboarding_4_confirm_next_word();
         break;
+    }
 
-    case BUTTON_LEFT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_LEFT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_LEFT:
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_LEFT:
         G_bolos_ux_context.onboarding_step =
-            ((G_bolos_ux_context.onboarding_step + 24) -
+            ((G_bolos_ux_context.onboarding_step +
+              G_bolos_ux_context.onboarding_kind) -
              G_bolos_ux_context.onboarding_step_checked_inc) %
-            24;
+            G_bolos_ux_context.onboarding_kind;
         goto redraw;
 
-    case BUTTON_RIGHT:
-        if (button_mask_counter >= FAST_LIST_THRESHOLD_CS &&
-            (button_mask_counter % FAST_LIST_ACTION_CS) == 0) {
-            goto case_BUTTON_EVT_RELEASED_BUTTON_RIGHT;
-        }
-        break;
-
+    case BUTTON_EVT_FAST | BUTTON_RIGHT:
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
-        // don't interpret we're releasing a long press
-        if (button_mask_counter > FAST_LIST_THRESHOLD_CS) {
-            return 0;
-        }
-    case_BUTTON_EVT_RELEASED_BUTTON_RIGHT:
         G_bolos_ux_context.onboarding_step =
             (G_bolos_ux_context.onboarding_step +
              G_bolos_ux_context.onboarding_step_checked_inc) %
-            24;
+            G_bolos_ux_context.onboarding_kind;
 
     redraw:
         // display next word
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_4_confirm_words_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_4_confirm_words_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_4_confirm_words_button;
-        screen_display_init();
+        screen_display_init(0);
         break;
     }
     return 0;
@@ -352,30 +344,30 @@ screen_onboarding_4_confirm_invalid_button(unsigned int button_mask,
 }
 
 void screen_onboarding_4_confirm_init(void) {
-    screen_state_init();
+    screen_state_init(0);
 
     // reset word confirmation
     G_bolos_ux_context.onboarding_index = ONBOARDING_CONFIRM_WORD_COUNT;
     G_bolos_ux_context.onboarding_words_checked = 0;
     G_bolos_ux_context.onboarding_words_are_valid =
-        1; // AND'ed value for each checked word, to only display result after
+        1; // fused value for each checked word, to only display result after
            // all words have been validated by the user but minimizing memory
-           // cost
+           // cost of handling it
 
     // register action callbacks
-    G_bolos_ux_context.button_push_callback =
+    G_bolos_ux_context.screen_stack[0].button_push_callback =
         screen_onboarding_4_confirm_button;
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[0].screen_before_element_display_callback =
         screen_onboarding_4_confirm_before_element_display_callback;
 
     // elements to be displayed
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_onboarding_4_confirm_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_onboarding_4_confirm_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
-    screen_display_init();
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 #ifdef OS_IO_SEPROXYHAL
 
-#define HELP_INTERVAL_MS 3000
+#define HELP_MSG_INTERVAL_MS 3000
 
 const bagl_element_t screen_onboarding_0_welcome_elements[] = {
     // type                               userid    x    y   w    h  str rad
@@ -103,7 +103,7 @@ const bagl_element_t screen_onboarding_0_welcome_tuto_elements[] = {
      NULL},
     {{BAGL_LABELINE, 0x01, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
       BAGL_FONT_OPEN_SANS_REGULAR_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
-     "slide buttons are used",
+     "side buttons are used",
      0,
      0,
      0,
@@ -354,9 +354,71 @@ const bagl_element_t screen_onboarding_0_welcome_restore_elements[] = {
      NULL},
 };
 
+#ifdef HAVE_ELECTRUM
+
+const bagl_element_t screen_onboarding_0_welcome_electrum_elements[] = {
+    // type                               userid    x    y   w    h  str rad
+    // fill      fg        bg      fid iid  txt   touchparams...       ]
+    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
+      0, 0},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x00, 0, 12, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Configure for",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_LABELINE, 0x00, 0, 26, 128, 32, 0, 0, 0, 0xFFFFFF, 0x000000,
+      BAGL_FONT_OPEN_SANS_EXTRABOLD_11px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "Electrum?",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x00, 3, 12, 7, 7, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CROSS},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+    {{BAGL_ICON, 0x00, 117, 13, 8, 6, 0, 0, 0, 0xFFFFFF, 0x000000, 0,
+      BAGL_GLYPH_ICON_CHECK},
+     NULL,
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+};
+
+#endif
+
 unsigned int
 screen_onboarding_0_welcome_new_button(unsigned int button_mask,
                                        unsigned int button_mask_counter);
+
+#ifdef HAVE_ELECTRUM
+
+unsigned int
+screen_onboarding_0_welcome_electrum_button(unsigned int button_mask,
+                                            unsigned int button_mask_counter);
+
+#endif
 
 unsigned int
 screen_onboarding_0_welcome_restore_button(unsigned int button_mask,
@@ -365,21 +427,35 @@ screen_onboarding_0_welcome_restore_button(unsigned int button_mask,
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
         // ask for new
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_0_welcome_new_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_0_welcome_new_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_0_welcome_new_button;
-        screen_display_init();
+        screen_display_init(0);
         break;
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
         G_bolos_ux_context.onboarding_kind = BOLOS_UX_ONBOARDING_RESTORE;
-
+#ifdef HAVE_ELECTRUM
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
+            screen_onboarding_0_welcome_electrum_elements;
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
+            .element_array_count =
+            ARRAYLEN(screen_onboarding_0_welcome_electrum_elements);
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
+            screen_onboarding_0_welcome_electrum_button;
+        screen_display_init(0);
+#else
         screen_onboarding_1_2_pin_init(1);
+#endif
+
         break;
     }
     return 0;
@@ -392,32 +468,70 @@ screen_onboarding_0_welcome_new_button(unsigned int button_mask,
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT:
         // ask for restore
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_0_welcome_restore_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_0_welcome_restore_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_0_welcome_restore_button;
-        screen_display_init();
+        screen_display_init(0);
         break;
 
     case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
         G_bolos_ux_context.onboarding_kind = BOLOS_UX_ONBOARDING_NEW;
-
+#ifdef HAVE_ELECTRUM
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
+            screen_onboarding_0_welcome_electrum_elements;
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
+            .element_array_count =
+            ARRAYLEN(screen_onboarding_0_welcome_electrum_elements);
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
+            screen_onboarding_0_welcome_electrum_button;
+        screen_display_init(0);
+#else
         screen_onboarding_1_2_pin_init(1);
+#endif
         break;
     }
     return 0;
 }
 
-unsigned int screen_onboarding_0_welcome_prepro(const bagl_element_t *element) {
+#ifdef HAVE_ELECTRUM
+unsigned int
+screen_onboarding_0_welcome_electrum_button(unsigned int button_mask,
+                                            unsigned int button_mask_counter) {
+    UNUSED(button_mask_counter);
+    switch (button_mask) {
+    case BUTTON_EVT_RELEASED | BUTTON_LEFT:
+        G_bolos_ux_context.onboarding_algorithm =
+            BOLOS_UX_ONBOARDING_ALGORITHM_BIP39;
+        screen_onboarding_1_2_pin_init(1);
+        break;
+
+    case BUTTON_EVT_RELEASED | BUTTON_RIGHT:
+        G_bolos_ux_context.onboarding_algorithm =
+            BOLOS_UX_ONBOARDING_ALGORITHM_ELECTRUM;
+        screen_onboarding_1_2_pin_init(1);
+        break;
+    }
+    return 0;
+}
+#endif
+
+const bagl_element_t *
+screen_onboarding_0_welcome_prepro(const bagl_element_t *element) {
     if (element->component.userid > 0) {
         return (G_bolos_ux_context.onboarding_index ==
-                element->component.userid - 1);
+                (unsigned int)(element->component.userid - 1))
+                   ? element
+                   : NULL;
     }
-    return 1;
+    return element;
 }
 
 unsigned int screen_onboarding_0_welcome_ticker(unsigned int ignored) {
@@ -429,7 +543,7 @@ unsigned int screen_onboarding_0_welcome_ticker(unsigned int ignored) {
             (G_bolos_ux_context.onboarding_index + 1) %
             G_bolos_ux_context.onboarding_step;
 
-        screen_display_init();
+        screen_display_init(0);
     }
     return 0;
 }
@@ -441,21 +555,22 @@ screen_onboarding_0_welcome_tuto_button(unsigned int button_mask,
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
         // reset ticker interval
-        io_seproxyhal_setup_ticker(0);
+        G_bolos_ux_context.screen_stack[0].ticker_interval = 0;
 
         // display new/restore switcher
         G_bolos_ux_context.onboarding_index = 0;
         G_bolos_ux_context.onboarding_step = 0;
 
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_0_welcome_new_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_0_welcome_new_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_0_welcome_new_button;
-        screen_display_init();
+        screen_display_init(0);
         break;
     }
     return 0;
@@ -467,54 +582,55 @@ screen_onboarding_0_welcome_button(unsigned int button_mask,
     UNUSED(button_mask_counter);
     switch (button_mask) {
     case BUTTON_EVT_RELEASED | BUTTON_LEFT | BUTTON_RIGHT:
-        // reset ticker interval
-        io_seproxyhal_setup_ticker(3000);
-
         // display tutorial
         G_bolos_ux_context.onboarding_index = 0;
         G_bolos_ux_context.onboarding_step = 7;
 
-        G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+        // reset the delay
+        G_bolos_ux_context.screen_stack[0].ticker_value = HELP_MSG_INTERVAL_MS;
+
+        G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
             screen_onboarding_0_welcome_tuto_elements;
-        G_bolos_ux_context.screen_current_element_arrays[0]
+        G_bolos_ux_context.screen_stack[0]
+            .element_arrays[0]
             .element_array_count =
             ARRAYLEN(screen_onboarding_0_welcome_tuto_elements);
-        G_bolos_ux_context.screen_current_element_arrays_count = 1;
-        G_bolos_ux_context.button_push_callback =
+        G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+        G_bolos_ux_context.screen_stack[0].button_push_callback =
             screen_onboarding_0_welcome_tuto_button;
-        screen_display_init();
+        screen_display_init(0);
         break;
     }
     return 0;
 }
 
 void screen_onboarding_0_welcome_init(void) {
-    screen_state_init();
+    screen_state_init(0);
 
     // neither new nor restore for now
     G_bolos_ux_context.onboarding_kind = 0;
 
     // register action callbacks
-    G_bolos_ux_context.ticker_callback = screen_onboarding_0_welcome_ticker;
-    G_bolos_ux_context.button_push_callback =
-        screen_onboarding_0_welcome_button;
-    G_bolos_ux_context.screen_before_element_display_callback =
+    G_bolos_ux_context.screen_stack[0].screen_before_element_display_callback =
         screen_onboarding_0_welcome_prepro;
 
     // start ticker for first screen
-    io_seproxyhal_setup_ticker(HELP_INTERVAL_MS);
-
-    // display the welcome screen first
+    G_bolos_ux_context.screen_stack[0].ticker_value = HELP_MSG_INTERVAL_MS;
+    G_bolos_ux_context.screen_stack[0].ticker_interval = HELP_MSG_INTERVAL_MS;
+    G_bolos_ux_context.screen_stack[0].ticker_callback =
+        screen_onboarding_0_welcome_ticker;
     G_bolos_ux_context.onboarding_index = 0;
     G_bolos_ux_context.onboarding_step = 2;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+
+    // display the welcome screen first
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_onboarding_0_welcome_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_onboarding_0_welcome_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
-    G_bolos_ux_context.button_push_callback =
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].button_push_callback =
         screen_onboarding_0_welcome_button;
-    screen_display_init();
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL

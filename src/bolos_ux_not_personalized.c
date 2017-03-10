@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Nano S - Secure firmware
-*   (c) 2016 Ledger
+*   Ledger Blue - Secure firmware
+*   (c) 2016, 2017 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 #ifdef OS_IO_SEPROXYHAL
 
 const bagl_element_t screen_not_personalized_static_elements[] = {
-    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0x000000, 0xFFFFFF,
+    {{BAGL_RECTANGLE, 0x00, 0, 0, 128, 32, 0, 0, BAGL_FILL, 0xFFFFFF, 0x000000,
       0, 0},
      NULL,
      0,
@@ -35,6 +35,7 @@ const bagl_element_t screen_not_personalized_static_elements[] = {
      NULL,
      NULL,
      NULL},
+#ifdef BOLOS_RELEASE
     {{BAGL_LABELINE, 0x00, 0, 20, 128, 32, 0, 0, 0, 0x000000, 0xFFFFFF,
       BAGL_FONT_OPEN_SANS_LIGHT_16px | BAGL_FONT_ALIGNMENT_CENTER, 0},
      "FAB MODE",
@@ -44,18 +45,30 @@ const bagl_element_t screen_not_personalized_static_elements[] = {
      NULL,
      NULL,
      NULL},
+#else
+    {{BAGL_LABELINE, 0x00, 0, 20, 128, 32, 0, 0, 0, 0x000000, 0xFFFFFF,
+      BAGL_FONT_OPEN_SANS_LIGHT_16px | BAGL_FONT_ALIGNMENT_CENTER, 0},
+     "FAB !RELEASE",
+     0,
+     0,
+     0,
+     NULL,
+     NULL,
+     NULL},
+#endif // BOLOS_RELEASE
 };
 
 void screen_not_personalized_init(void) {
-    screen_state_init();
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array =
+    screen_state_init(0);
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array =
         screen_not_personalized_static_elements;
-    G_bolos_ux_context.screen_current_element_arrays[0].element_array_count =
+    G_bolos_ux_context.screen_stack[0].element_arrays[0].element_array_count =
         ARRAYLEN(screen_not_personalized_static_elements);
-    G_bolos_ux_context.screen_current_element_arrays_count = 1;
+    G_bolos_ux_context.screen_stack[0].element_arrays_count = 1;
 
-    G_bolos_ux_context.exit_code_after_elements_displayed = BOLOS_UX_OK;
-    screen_display_init();
+    G_bolos_ux_context.screen_stack[0].exit_code_after_elements_displayed =
+        BOLOS_UX_OK;
+    screen_display_init(0);
 }
 
 #endif // OS_IO_SEPROXYHAL
